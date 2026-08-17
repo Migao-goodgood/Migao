@@ -9,6 +9,7 @@ struct ContentView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var tab: AppTab = .home
     @State private var recordType: RecordType?
+    @State private var isEditingGoal = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -18,11 +19,11 @@ struct ContentView: View {
             Group {
                 switch tab {
                 case .home:
-                    HomeView(state: state, onRecord: present)
+                    HomeView(state: state, onRecord: present, onEditGoal: presentGoalEditor)
                 case .trend:
                     TrendView(state: state, onRecord: present)
                 case .mine:
-                    ProfileView(state: state)
+                    ProfileView(state: state, onEditGoal: presentGoalEditor)
                 }
             }
             .frame(maxWidth: usesWideLayout ? 720 : .infinity, maxHeight: .infinity, alignment: .top)
@@ -39,9 +40,21 @@ struct ContentView: View {
                     .transition(.scale(scale: 0.92).combined(with: .opacity))
                     .zIndex(2)
             }
+
+            if isEditingGoal {
+                Color.black.opacity(0.32)
+                    .ignoresSafeArea()
+                    .onTapGesture { dismissGoalEditor() }
+                    .transition(.opacity)
+
+                GoalWeightModal(state: state, onDismiss: dismissGoalEditor)
+                    .transition(.scale(scale: 0.92).combined(with: .opacity))
+                    .zIndex(3)
+            }
         }
         .preferredColorScheme(.light)
         .animation(.spring(response: 0.32, dampingFraction: 0.86), value: recordType != nil)
+        .animation(.spring(response: 0.32, dampingFraction: 0.86), value: isEditingGoal)
     }
 
     private var usesWideLayout: Bool {
@@ -59,17 +72,26 @@ struct ContentView: View {
     private func dismissRecord() {
         withAnimation { recordType = nil }
     }
+
+    private func presentGoalEditor() {
+        withAnimation { isEditingGoal = true }
+    }
+
+    private func dismissGoalEditor() {
+        withAnimation { isEditingGoal = false }
+    }
 }
 
 private struct HomeView: View {
     @ObservedObject var state: AppState
     let onRecord: (RecordType) -> Void
+    let onEditGoal: () -> Void
 
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
                 HomeHeader(recordCount: state.records.count)
-                WeightHero(state: state, onRecord: { onRecord(.weight) })
+                WeightHero(state: state, onRecord: { onRecord(.weight) }, onEditGoal: onEditGoal)
 
                 HomeSectionTitle(title: "今日状态", subtitle: "慢慢来，也是在向前")
                 DailyPanel(water: state.water)
@@ -128,9 +150,10 @@ private struct HomeHeader: View {
 private struct WeightHero: View {
     @ObservedObject var state: AppState
     let onRecord: () -> Void
+    let onEditGoal: () -> Void
 
     var body: some View {
-        let remaining = max(0, state.weight - state.goal)
+        let remaining = max(0, state.weight - state.goalWeight)
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .center) {
@@ -143,12 +166,20 @@ private struct WeightHero: View {
                             .foregroundStyle(Color(hex: "765766"))
                     }
                     Spacer()
-                    Text("目标 \(String(format: "%.1f", state.goal)) kg")
+                    Button(action: onEditGoal) {
+                        HStack(spacing: 5) {
+                            Text("目标 \(String(format: "%.1f", state.goalWeight)) kg")
+                            Image(systemName: "pencil")
+                                .font(.system(size: 8, weight: .heavy))
+                        }
                         .roundedFont(10, weight: .bold)
                         .foregroundStyle(Color(hex: "8D7180"))
                         .padding(.horizontal, 10)
                         .frame(height: 29)
                         .background(Color(hex: "FFF1F6"), in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("编辑目标体重")
                 }
 
                 HStack(alignment: .lastTextBaseline, spacing: 8) {
@@ -185,7 +216,7 @@ private struct WeightHero: View {
                 HStack {
                     Text("起点 \(String(format: "%.1f", state.startWeight))")
                     Spacer()
-                    Text("终点 \(String(format: "%.1f", state.goal))")
+                    Text("终点 \(String(format: "%.1f", state.goalWeight))")
                 }
                 .roundedFont(9, weight: .medium)
                 .foregroundStyle(Color(hex: "B094A1"))
@@ -624,6 +655,7 @@ private struct HistoryRow: View {
 
 private struct ProfileView: View {
     @ObservedObject var state: AppState
+    let onEditGoal: () -> Void
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -638,11 +670,17 @@ private struct ProfileView: View {
                         Divider().frame(height: 40)
                         ProfileStat(value: "\(state.records.count)", label: "坚持天数")
                         Divider().frame(height: 40)
-                        ProfileStat(value: "54.0", label: "目标 kg")
+                        ProfileStat(value: String(format: "%.1f", state.goalWeight), label: "目标 kg")
                     }.padding(.top, 25).padding(.bottom, 4)
                 }
                 .padding(.top, 35).padding(.horizontal, 20).padding(.bottom, 20).kawaiiCard(radius: 24)
-                VStack(spacing: 0) { SettingRow(title: "目标设置", icon: "flag.fill"); Divider(); SettingRow(title: "记录提醒", icon: "bell.fill"); Divider(); SettingRow(title: "关于这不得瘦死", icon: "heart.fill") }
+                VStack(spacing: 0) {
+                    Button(action: onEditGoal) { SettingRow(title: "目标设置", icon: "flag.fill") }.buttonStyle(.plain)
+                    Divider()
+                    SettingRow(title: "记录提醒", icon: "bell.fill")
+                    Divider()
+                    SettingRow(title: "关于这不得瘦死", icon: "heart.fill")
+                }
                     .padding(.horizontal, 18).kawaiiCard(radius: 24).padding(.top, 18)
             }
             .padding(.horizontal, 20)
@@ -688,6 +726,92 @@ private struct KawaiiMascot: View {
 }
 
 private struct Triangle: Shape { func path(in rect: CGRect) -> Path { var path = Path(); path.move(to: CGPoint(x: rect.midX, y: rect.minY)); path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY)); path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY)); path.closeSubpath(); return path } }
+
+private struct GoalWeightModal: View {
+    @ObservedObject var state: AppState
+    let onDismiss: () -> Void
+    @State private var input: String
+    @State private var error = ""
+
+    init(state: AppState, onDismiss: @escaping () -> Void) {
+        self.state = state
+        self.onDismiss = onDismiss
+        _input = State(initialValue: String(format: "%.1f", state.goalWeight))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("我的计划")
+                        .roundedFont(11, weight: .bold)
+                        .foregroundStyle(Color(hex: "E27CA2"))
+                    Text("设置目标体重")
+                        .roundedFont(23, weight: .heavy)
+                        .foregroundStyle(Color.warmText)
+                }
+                Spacer()
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Color(hex: "D27498"))
+                        .frame(width: 34, height: 34)
+                        .background(Color(hex: "FFE0EB"), in: Circle())
+                }
+                .buttonStyle(.plain)
+            }
+
+            HStack(alignment: .bottom, spacing: 9) {
+                ModalField(label: "目标体重", placeholder: "例如：54.0", text: $input, keyboard: .decimalPad)
+                Text("kg")
+                    .roundedFont(12, weight: .bold)
+                    .foregroundStyle(Color.mutedText)
+                    .padding(.bottom, 15)
+            }
+            .padding(.top, 24)
+
+            if !error.isEmpty {
+                Text(error)
+                    .roundedFont(11, weight: .medium)
+                    .foregroundStyle(Color(hex: "D7587F"))
+                    .padding(.top, 8)
+            }
+
+            Button(action: save) {
+                Text("保存目标")
+                    .roundedFont(15, weight: .heavy)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .background(
+                        LinearGradient(colors: [Color(hex: "F06F9E"), Color(hex: "F791B5")], startPoint: .leading, endPoint: .trailing),
+                        in: RoundedRectangle(cornerRadius: 17, style: .continuous)
+                    )
+                    .shadow(color: Color(hex: "D95686"), radius: 0, x: 0, y: 6)
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 20)
+        }
+        .padding(26)
+        .frame(maxWidth: 350)
+        .background(Color(hex: "FFF8FB"), in: RoundedRectangle(cornerRadius: 27, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 27, style: .continuous).stroke(.white.opacity(0.95), lineWidth: 2))
+        .shadow(color: Color(hex: "974569").opacity(0.22), radius: 28, y: 14)
+    }
+
+    private func save() {
+        let normalized = input.replacingOccurrences(of: ",", with: ".")
+        guard let value = Double(normalized) else {
+            error = "请输入正确的体重数字"
+            return
+        }
+        guard state.updateGoalWeight(value) else {
+            error = "目标体重需在 20.0 至 300.0 kg 之间"
+            return
+        }
+        onDismiss()
+    }
+}
 
 private struct RecordModal: View {
     let type: RecordType

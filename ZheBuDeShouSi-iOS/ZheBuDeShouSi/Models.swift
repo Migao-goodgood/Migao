@@ -111,7 +111,10 @@ struct WeightRecord: Identifiable, Codable {
 
 @MainActor
 final class AppState: ObservableObject {
+    static let goalWeightRange = 20.0...300.0
+
     @Published var weight: Double = 58.6
+    @Published private(set) var goalWeight: Double = 54.0
     @Published var water: Int = 1200
     @Published var records: [WeightRecord] = []
     @Published var logs: [ActivityLog] = []
@@ -135,14 +138,15 @@ final class AppState: ObservableObject {
         load()
     }
 
-    var goal: Double { 54.0 }
     var startWeight: Double { 62.0 }
     var goalProgress: Double {
-        min(1, max(0, (startWeight - weight) / (startWeight - goal)))
+        let totalChange = goalWeight - startWeight
+        guard abs(totalChange) > 0.05 else { return abs(weight - goalWeight) <= 0.05 ? 1 : 0 }
+        return min(1, max(0, (weight - startWeight) / totalChange))
     }
 
     func weightTone(_ value: Double) -> Color {
-        let distance = value - goal
+        let distance = value - goalWeight
         if distance <= 0 { return .mintGreen }
         if distance < 1.5 { return Color(hex: "E5A173") }
         if distance < 3 { return Color(hex: "EA927B") }
@@ -150,6 +154,14 @@ final class AppState: ObservableObject {
         if distance < 6 { return Color(hex: "ED6E83") }
         if distance < 8 { return Color(hex: "E65F7D") }
         return Color(hex: "D94F70")
+    }
+
+    @discardableResult
+    func updateGoalWeight(_ value: Double) -> Bool {
+        guard value.isFinite, Self.goalWeightRange.contains(value) else { return false }
+        goalWeight = (value * 10).rounded() / 10
+        save()
+        return true
     }
 
     func addWeight(_ value: Double, note: String) {
@@ -176,13 +188,14 @@ final class AppState: ObservableObject {
 
     private struct Snapshot: Codable {
         var weight: Double
+        var goalWeight: Double?
         var water: Int
         var records: [WeightRecord]
         var logs: [ActivityLog]
     }
 
     private func save() {
-        let snapshot = Snapshot(weight: weight, water: water, records: records, logs: logs)
+        let snapshot = Snapshot(weight: weight, goalWeight: goalWeight, water: water, records: records, logs: logs)
         guard let data = try? JSONEncoder().encode(snapshot) else { return }
         UserDefaults.standard.set(data, forKey: storageKey)
     }
@@ -191,6 +204,7 @@ final class AppState: ObservableObject {
         guard let data = UserDefaults.standard.data(forKey: storageKey),
               let snapshot = try? JSONDecoder().decode(Snapshot.self, from: data) else { return }
         weight = snapshot.weight
+        goalWeight = snapshot.goalWeight ?? goalWeight
         water = snapshot.water
         records = snapshot.records
         logs = snapshot.logs
