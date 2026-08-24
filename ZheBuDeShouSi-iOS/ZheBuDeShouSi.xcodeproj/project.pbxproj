@@ -10,6 +10,11 @@
 		A10000000000000000000001 /* ZheBuDeShouSiApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000001 /* ZheBuDeShouSiApp.swift */; };
 		A10000000000000000000002 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000002 /* Models.swift */; };
 		A10000000000000000000003 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* ContentView.swift */; };
+		A10000000000000000000004 /* HealthModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000004 /* HealthModels.swift */; };
+		A10000000000000000000005 /* HealthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000005 /* HealthStore.swift */; };
+		A10000000000000000000006 /* HealthKitClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000006 /* HealthKitClient.swift */; };
+		A10000000000000000000007 /* HealthSyncCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000007 /* HealthSyncCoordinator.swift */; };
+		A10000000000000000000008 /* HealthKitMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000009 /* HealthKitMapper.swift */; };
 		C6882D30302F0C4C00139FA1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C6882D2F302F0C4C00139FA1 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -18,6 +23,12 @@
 		B10000000000000000000001 /* ZheBuDeShouSiApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZheBuDeShouSiApp.swift; sourceTree = "<group>"; };
 		B10000000000000000000002 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		B10000000000000000000003 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		B10000000000000000000004 /* HealthModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Health/Domain/HealthModels.swift; sourceTree = "<group>"; };
+		B10000000000000000000005 /* HealthStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Health/Application/HealthStore.swift; sourceTree = "<group>"; };
+		B10000000000000000000006 /* HealthKitClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/HealthKit/Infrastructure/HealthKitClient.swift; sourceTree = "<group>"; };
+		B10000000000000000000007 /* HealthSyncCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/HealthKit/Application/HealthSyncCoordinator.swift; sourceTree = "<group>"; };
+		B10000000000000000000008 /* ZheBuDeShouSi.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ZheBuDeShouSi.entitlements; sourceTree = "<group>"; };
+		B10000000000000000000009 /* HealthKitMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/HealthKit/Infrastructure/HealthKitMapper.swift; sourceTree = "<group>"; };
 		C640E3D830332BC800B97CF9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		C6882D2F302F0C4C00139FA1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -45,9 +56,15 @@
 			isa = PBXGroup;
 			children = (
 				C640E3D830332BC800B97CF9 /* Info.plist */,
+				B10000000000000000000008 /* ZheBuDeShouSi.entitlements */,
 				B10000000000000000000001 /* ZheBuDeShouSiApp.swift */,
 				B10000000000000000000002 /* Models.swift */,
 				B10000000000000000000003 /* ContentView.swift */,
+				B10000000000000000000004 /* HealthModels.swift */,
+				B10000000000000000000005 /* HealthStore.swift */,
+				B10000000000000000000006 /* HealthKitClient.swift */,
+				B10000000000000000000007 /* HealthSyncCoordinator.swift */,
+				B10000000000000000000009 /* HealthKitMapper.swift */,
 				C6882D2F302F0C4C00139FA1 /* Assets.xcassets */,
 			);
 			path = ZheBuDeShouSi;
@@ -89,10 +106,15 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 2660;
-				TargetAttributes = {
-					E10000000000000000000001 = {
-						CreatedOnToolsVersion = 16.0;
-					};
+					TargetAttributes = {
+						E10000000000000000000001 = {
+							CreatedOnToolsVersion = 16.0;
+							SystemCapabilities = {
+								com.apple.HealthKit = {
+									enabled = 1;
+								};
+							};
+						};
 				};
 			};
 			buildConfigurationList = F10000000000000000000001 /* Build configuration list for PBXProject "ZheBuDeShouSi" */;
@@ -133,6 +155,11 @@
 				A10000000000000000000001 /* ZheBuDeShouSiApp.swift in Sources */,
 				A10000000000000000000002 /* Models.swift in Sources */,
 				A10000000000000000000003 /* ContentView.swift in Sources */,
+				A10000000000000000000004 /* HealthModels.swift in Sources */,
+				A10000000000000000000005 /* HealthStore.swift in Sources */,
+				A10000000000000000000006 /* HealthKitClient.swift in Sources */,
+				A10000000000000000000007 /* HealthSyncCoordinator.swift in Sources */,
+				A10000000000000000000008 /* HealthKitMapper.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -154,6 +181,9 @@
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				INFOPLIST_FILE = ZheBuDeShouSi/Info.plist;
+				"INFOPLIST_KEY_NSHealthShareUsageDescription" = "用于同步 Apple 健康中的体重和腰围数据";
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = ZheBuDeShouSi/ZheBuDeShouSi.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = ZheBuDeShouSi/ZheBuDeShouSi.entitlements;
 				INFOPLIST_KEY_CFBundleDisplayName = "这不得瘦死";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
@@ -325,6 +355,9 @@
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				INFOPLIST_FILE = ZheBuDeShouSi/Info.plist;
+				"INFOPLIST_KEY_NSHealthShareUsageDescription" = "用于同步 Apple 健康中的体重和腰围数据";
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = ZheBuDeShouSi/ZheBuDeShouSi.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = ZheBuDeShouSi/ZheBuDeShouSi.entitlements;
 				INFOPLIST_KEY_CFBundleDisplayName = "这不得瘦死";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
