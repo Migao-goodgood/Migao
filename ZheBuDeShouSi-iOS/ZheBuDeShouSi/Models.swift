@@ -4,6 +4,7 @@ import SwiftUI
 enum AppTab: String, CaseIterable {
     case home = "首页"
     case trend = "趋势"
+    case habits = "习惯"
     case mine = "我的"
 }
 
@@ -107,6 +108,41 @@ struct WeightRecord: Identifiable, Codable {
     var weight: Double
     var note: String
     var change: Double
+    var source: HealthRecordSource = .manual
+    var externalIdentifier: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, date, weight, note, change, source, externalIdentifier
+    }
+
+    init(
+        id: UUID = UUID(),
+        date: Date,
+        weight: Double,
+        note: String,
+        change: Double,
+        source: HealthRecordSource = .manual,
+        externalIdentifier: String? = nil
+    ) {
+        self.id = id
+        self.date = date
+        self.weight = weight
+        self.note = note
+        self.change = change
+        self.source = source
+        self.externalIdentifier = externalIdentifier
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        date = try container.decode(Date.self, forKey: .date)
+        weight = try container.decode(Double.self, forKey: .weight)
+        note = try container.decodeIfPresent(String.self, forKey: .note) ?? ""
+        change = try container.decodeIfPresent(Double.self, forKey: .change) ?? 0
+        source = try container.decodeIfPresent(HealthRecordSource.self, forKey: .source) ?? .manual
+        externalIdentifier = try container.decodeIfPresent(String.self, forKey: .externalIdentifier)
+    }
 }
 
 @MainActor
@@ -139,6 +175,8 @@ final class AppState: ObservableObject {
     }
 
     var startWeight: Double { 62.0 }
+    /// Gap = 当日体重 - 目标体重。正数代表还高于目标，负数代表已经低于目标。
+    var weightGap: Double { weight - goalWeight }
     var goalProgress: Double {
         let totalChange = goalWeight - startWeight
         guard abs(totalChange) > 0.05 else { return abs(weight - goalWeight) <= 0.05 ? 1 : 0 }
@@ -170,6 +208,33 @@ final class AppState: ObservableObject {
         records.insert(WeightRecord(date: .now, weight: value, note: note.isEmpty ? "刚刚记录" : note, change: difference), at: 0)
         logs.insert(ActivityLog(kind: .weight, title: "体重记录", date: .now, amount: String(format: "%.1f kg", value), note: note.isEmpty ? timeLabel() : note), at: 0)
         save()
+    }
+
+    @discardableResult
+    func importHealthKitWeights(_ samples: [HealthKitWeightSample]) -> Int {
+        let importedRecords = samples.compactMap { sample -> WeightRecord? in
+            guard sample.kilograms.isFinite, Self.goalWeightRange.contains(sample.kilograms),
+                  !records.contains(where: { $0.externalIdentifier == sample.id }) else { return nil }
+            return WeightRecord(
+                date: sample.date,
+                weight: sample.kilograms,
+                note: "来自 Apple 健康",
+                change: 0,
+                source: .healthKit,
+                externalIdentifier: sample.id
+            )
+        }
+
+        guard !importedRecords.isEmpty else { return 0 }
+        records.append(contentsOf: importedRecords)
+        records.sort { $0.date > $1.date }
+        for index in records.indices {
+            guard index + 1 < records.count else { continue }
+            records[index].change = records[index].weight - records[index + 1].weight
+        }
+        weight = records.first?.weight ?? weight
+        save()
+        return importedRecords.count
     }
 
     func addActivity(type: RecordType, name: String, amount: String, note: String) {
