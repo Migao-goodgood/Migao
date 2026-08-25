@@ -7,30 +7,32 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A10000000000000000000001 /* ZheBuDeShouSiApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000001 /* ZheBuDeShouSiApp.swift */; };
-		A10000000000000000000002 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000002 /* Models.swift */; };
-		A10000000000000000000003 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* ContentView.swift */; };
-		A10000000000000000000004 /* HealthModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000004 /* HealthModels.swift */; };
-		A10000000000000000000005 /* HealthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000005 /* HealthStore.swift */; };
-		A10000000000000000000006 /* HealthKitClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000006 /* HealthKitClient.swift */; };
-		A10000000000000000000007 /* HealthSyncCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000007 /* HealthSyncCoordinator.swift */; };
-		A10000000000000000000008 /* HealthKitMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000009 /* HealthKitMapper.swift */; };
-		C6882D30302F0C4C00139FA1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C6882D2F302F0C4C00139FA1 /* Assets.xcassets */; };
+		A10000000000000000000001 /* App/ZheBuDeShouSiApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000001 /* App/ZheBuDeShouSiApp.swift */; };
+		A10000000000000000000002 /* Shared/Models/Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000002 /* Shared/Models/Models.swift */; };
+		A10000000000000000000003 /* Shared/UI/ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* Shared/UI/ContentView.swift */; };
+		A10000000000000000000004 /* Features/Health/Domain/HealthModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000004 /* Features/Health/Domain/HealthModels.swift */; };
+		A10000000000000000000005 /* Features/Health/Application/HealthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000005 /* Features/Health/Application/HealthStore.swift */; };
+		A10000000000000000000006 /* Features/HealthKit/Infrastructure/HealthKitClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000006 /* Features/HealthKit/Infrastructure/HealthKitClient.swift */; };
+		A10000000000000000000007 /* Features/HealthKit/Application/HealthSyncCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000007 /* Features/HealthKit/Application/HealthSyncCoordinator.swift */; };
+		A10000000000000000000008 /* Features/HealthKit/Infrastructure/HealthKitMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000009 /* Features/HealthKit/Infrastructure/HealthKitMapper.swift */; };
+		C6882D30302F0C4C00139FA1 /* Resources/Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C6882D2F302F0C4C00139FA1 /* Resources/Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		B10000000000000000000000 /* ZheBuDeShouSi.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ZheBuDeShouSi.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		B10000000000000000000001 /* ZheBuDeShouSiApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZheBuDeShouSiApp.swift; sourceTree = "<group>"; };
-		B10000000000000000000002 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
-		B10000000000000000000003 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		B10000000000000000000004 /* HealthModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Health/Domain/HealthModels.swift; sourceTree = "<group>"; };
-		B10000000000000000000005 /* HealthStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Health/Application/HealthStore.swift; sourceTree = "<group>"; };
-		B10000000000000000000006 /* HealthKitClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/HealthKit/Infrastructure/HealthKitClient.swift; sourceTree = "<group>"; };
-		B10000000000000000000007 /* HealthSyncCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/HealthKit/Application/HealthSyncCoordinator.swift; sourceTree = "<group>"; };
-		B10000000000000000000008 /* ZheBuDeShouSi.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ZheBuDeShouSi.entitlements; sourceTree = "<group>"; };
-		B10000000000000000000009 /* HealthKitMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/HealthKit/Infrastructure/HealthKitMapper.swift; sourceTree = "<group>"; };
-		C640E3D830332BC800B97CF9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		C6882D2F302F0C4C00139FA1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B10000000000000000000001 /* App/ZheBuDeShouSiApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZheBuDeShouSiApp.swift; sourceTree = "<group>"; };
+		B10000000000000000000002 /* Shared/Models/Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		B10000000000000000000003 /* Shared/UI/ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		B10000000000000000000004 /* Features/Health/Domain/HealthModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthModels.swift; sourceTree = "<group>"; };
+		B10000000000000000000005 /* Features/Health/Application/HealthStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthStore.swift; sourceTree = "<group>"; };
+		B10000000000000000000006 /* Features/HealthKit/Infrastructure/HealthKitClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitClient.swift; sourceTree = "<group>"; };
+		B10000000000000000000007 /* Features/HealthKit/Application/HealthSyncCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSyncCoordinator.swift; sourceTree = "<group>"; };
+		B10000000000000000000008 /* App/ZheBuDeShouSi.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ZheBuDeShouSi.entitlements; sourceTree = "<group>"; };
+		B10000000000000000000009 /* Features/HealthKit/Infrastructure/HealthKitMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitMapper.swift; sourceTree = "<group>"; };
+		C640E3D830332BC800B97CF9 /* App/Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		C6882D2F302F0C4C00139FA1 /* Resources/Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		C70000000000000000000001 /* Distribution/ExportOptions-mac-app-store.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = ExportOptions-mac-app-store.plist; sourceTree = "<group>"; };
+		C70000000000000000000002 /* TestFlight/WhatToTest.zh-Hans.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = WhatToTest.zh-Hans.txt; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -48,6 +50,8 @@
 			isa = PBXGroup;
 			children = (
 				D10000000000000000000001 /* ZheBuDeShouSi */,
+				D10000000000000000000003 /* Distribution */,
+				D10000000000000000000004 /* TestFlight */,
 				D10000000000000000000002 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -55,19 +59,131 @@
 		D10000000000000000000001 /* ZheBuDeShouSi */ = {
 			isa = PBXGroup;
 			children = (
-				C640E3D830332BC800B97CF9 /* Info.plist */,
-				B10000000000000000000008 /* ZheBuDeShouSi.entitlements */,
-				B10000000000000000000001 /* ZheBuDeShouSiApp.swift */,
-				B10000000000000000000002 /* Models.swift */,
-				B10000000000000000000003 /* ContentView.swift */,
-				B10000000000000000000004 /* HealthModels.swift */,
-				B10000000000000000000005 /* HealthStore.swift */,
-				B10000000000000000000006 /* HealthKitClient.swift */,
-				B10000000000000000000007 /* HealthSyncCoordinator.swift */,
-				B10000000000000000000009 /* HealthKitMapper.swift */,
-				C6882D2F302F0C4C00139FA1 /* Assets.xcassets */,
+				D10000000000000000000005 /* App */,
+				D10000000000000000000006 /* Features */,
+				D1000000000000000000000D /* Shared */,
+				D10000000000000000000010 /* Resources */,
 			);
 			path = ZheBuDeShouSi;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000003 /* Distribution */ = {
+			isa = PBXGroup;
+			children = (
+				C70000000000000000000001 /* ExportOptions-mac-app-store.plist */,
+			);
+			path = Distribution;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000004 /* TestFlight */ = {
+			isa = PBXGroup;
+			children = (
+				C70000000000000000000002 /* WhatToTest.zh-Hans.txt */,
+			);
+			path = TestFlight;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000005 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000001 /* ZheBuDeShouSiApp.swift */,
+				C640E3D830332BC800B97CF9 /* Info.plist */,
+				B10000000000000000000008 /* ZheBuDeShouSi.entitlements */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000006 /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				D10000000000000000000007 /* Health */,
+				D1000000000000000000000A /* HealthKit */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000007 /* Health */ = {
+			isa = PBXGroup;
+			children = (
+				D10000000000000000000008 /* Application */,
+				D10000000000000000000009 /* Domain */,
+			);
+			path = Health;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000008 /* Application */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000005 /* HealthStore.swift */,
+			);
+			path = Application;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000009 /* Domain */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000004 /* HealthModels.swift */,
+			);
+			path = Domain;
+			sourceTree = "<group>";
+		};
+		D1000000000000000000000A /* HealthKit */ = {
+			isa = PBXGroup;
+			children = (
+				D1000000000000000000000B /* Application */,
+				D1000000000000000000000C /* Infrastructure */,
+			);
+			path = HealthKit;
+			sourceTree = "<group>";
+		};
+		D1000000000000000000000B /* Application */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000007 /* HealthSyncCoordinator.swift */,
+			);
+			path = Application;
+			sourceTree = "<group>";
+		};
+		D1000000000000000000000C /* Infrastructure */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000006 /* HealthKitClient.swift */,
+				B10000000000000000000009 /* HealthKitMapper.swift */,
+			);
+			path = Infrastructure;
+			sourceTree = "<group>";
+		};
+		D1000000000000000000000D /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				D1000000000000000000000E /* Models */,
+				D1000000000000000000000F /* UI */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		D1000000000000000000000E /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000002 /* Models.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		D1000000000000000000000F /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000003 /* ContentView.swift */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000010 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				C6882D2F302F0C4C00139FA1 /* Assets.xcassets */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 		D10000000000000000000002 /* Products */ = {
@@ -106,15 +222,15 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 2660;
-					TargetAttributes = {
-						E10000000000000000000001 = {
-							CreatedOnToolsVersion = 16.0;
-							SystemCapabilities = {
-								com.apple.HealthKit = {
-									enabled = 1;
-								};
+				TargetAttributes = {
+					E10000000000000000000001 = {
+						CreatedOnToolsVersion = 16.0;
+						SystemCapabilities = {
+							com.apple.HealthKit = {
+								enabled = 1;
 							};
 						};
+					};
 				};
 			};
 			buildConfigurationList = F10000000000000000000001 /* Build configuration list for PBXProject "ZheBuDeShouSi" */;
@@ -155,11 +271,11 @@
 				A10000000000000000000001 /* ZheBuDeShouSiApp.swift in Sources */,
 				A10000000000000000000002 /* Models.swift in Sources */,
 				A10000000000000000000003 /* ContentView.swift in Sources */,
-				A10000000000000000000004 /* HealthModels.swift in Sources */,
-				A10000000000000000000005 /* HealthStore.swift in Sources */,
-				A10000000000000000000006 /* HealthKitClient.swift in Sources */,
-				A10000000000000000000007 /* HealthSyncCoordinator.swift in Sources */,
-				A10000000000000000000008 /* HealthKitMapper.swift in Sources */,
+				A10000000000000000000004 /* Features/Health/Domain/HealthModels.swift in Sources */,
+				A10000000000000000000005 /* Features/Health/Application/HealthStore.swift in Sources */,
+				A10000000000000000000006 /* Features/HealthKit/Infrastructure/HealthKitClient.swift in Sources */,
+				A10000000000000000000007 /* Features/HealthKit/Application/HealthSyncCoordinator.swift in Sources */,
+				A10000000000000000000008 /* Features/HealthKit/Infrastructure/HealthKitMapper.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -173,6 +289,9 @@
 				"ASSETCATALOG_COMPILER_APPICON_NAME[sdk=iphonesimulator*]" = AppIcon;
 				"ASSETCATALOG_COMPILER_APPICON_NAME[sdk=macosx*]" = AppIcon;
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_ENTITLEMENTS = ZheBuDeShouSi/App/ZheBuDeShouSi.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = ZheBuDeShouSi/App/ZheBuDeShouSi.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = ZheBuDeShouSi/App/ZheBuDeShouSi.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = YES;
 				DEAD_CODE_STRIPPING = YES;
@@ -180,13 +299,12 @@
 				DEVELOPMENT_TEAM = 6Y8DN35HLK;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
-				INFOPLIST_FILE = ZheBuDeShouSi/Info.plist;
-				"INFOPLIST_KEY_NSHealthShareUsageDescription" = "用于同步 Apple 健康中的体重和腰围数据";
-				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = ZheBuDeShouSi/ZheBuDeShouSi.entitlements;
-				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = ZheBuDeShouSi/ZheBuDeShouSi.entitlements;
+				INFOPLIST_FILE = ZheBuDeShouSi/App/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "这不得瘦死";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "用于读取您授权的体重、身体质量指数和活动数据，以展示健康变化趋势并提供体重管理分析。";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "用于将您在“这不得瘦死”中记录的体重、身体质量指数等健康数据同步到“健康”App，便于统一查看和管理。";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -348,19 +466,21 @@
 				"ASSETCATALOG_COMPILER_APPICON_NAME[sdk=iphonesimulator*]" = AppIcon;
 				"ASSETCATALOG_COMPILER_APPICON_NAME[sdk=macosx*]" = AppIcon;
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_ENTITLEMENTS = ZheBuDeShouSi/App/ZheBuDeShouSi.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = ZheBuDeShouSi/App/ZheBuDeShouSi.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = ZheBuDeShouSi/App/ZheBuDeShouSi.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 6Y8DN35HLK;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
-				INFOPLIST_FILE = ZheBuDeShouSi/Info.plist;
-				"INFOPLIST_KEY_NSHealthShareUsageDescription" = "用于同步 Apple 健康中的体重和腰围数据";
-				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = ZheBuDeShouSi/ZheBuDeShouSi.entitlements;
-				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = ZheBuDeShouSi/ZheBuDeShouSi.entitlements;
+				INFOPLIST_FILE = ZheBuDeShouSi/App/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "这不得瘦死";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "用于读取您授权的体重、身体质量指数和活动数据，以展示健康变化趋势并提供体重管理分析。";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "用于将您在“这不得瘦死”中记录的体重、身体质量指数等健康数据同步到“健康”App，便于统一查看和管理。";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
