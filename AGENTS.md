@@ -32,3 +32,9 @@ All contributors, including Codex and human collaborators, must read this file a
 - A GitHub push or merge does not publish an App Store release.
 - App Store, TestFlight, or Xcode Cloud releases require a separate, explicit release action.
 
+## Change summary and TestFlight notes
+
+- Before each GitHub commit, prepare a concise summary covering the user-visible changes, affected areas, and verification performed.
+- Put that summary in the commit message body so the change is easy to identify in GitHub history.
+- For a TestFlight build, reuse the same summary in App Store Connect's “测试信息 / What to Test” field; GitHub commit messages are not copied to TestFlight automatically.
+- Keep the summary factual and mention known limitations or items that still need testing.
