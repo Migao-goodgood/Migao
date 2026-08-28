@@ -277,15 +277,21 @@ final class AppState: ObservableObject {
 }
 
 extension Color {
-    static let pagePink = Color(hex: "FFF6F9")
-    static let panelPink = Color(hex: "FFE0EA")
-    static let strawberry = Color(hex: "EF6F9F")
-    static let softPink = Color(hex: "F6D7E4")
-    static let warmText = Color(hex: "604756")
-    static let mutedText = Color(hex: "A58B98")
+    static let pagePink = Color(hex: "F7F6F3")
+    static let panelPink = Color(hex: "E8E4DC")
+    static let strawberry = Color(hex: "252525")
+    static let softPink = Color(hex: "D9D4CB")
+    static let warmText = Color(hex: "252525")
+    static let mutedText = Color(hex: "8D887F")
     static let mintGreen = Color(hex: "67AF97")
-    static let mintPale = Color(hex: "DCF3F0")
-    static let lavenderPale = Color(hex: "E8E0FA")
+    static let mintPale = Color(hex: "E7F0EC")
+    static let lavenderPale = Color(hex: "ECE9E3")
+    static let ink = Color(hex: "252525")
+    static let inkSoft = Color(hex: "4A4A4A")
+    static let platinum = Color(hex: "B8B1A7")
+    static let platinumDeep = Color(hex: "89837A")
+    static let platinumLight = Color(hex: "E9E6E0")
+    static let platinumPale = Color(hex: "F7F6F3")
 
     init(hex: String) {
         let value = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
@@ -304,7 +310,7 @@ extension View {
             .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).stroke(Color.white.opacity(0.95), lineWidth: 2))
-            .shadow(color: Color(hex: "EFCFDC").opacity(0.65), radius: 0, x: 0, y: 7)
+            .shadow(color: Color.platinum.opacity(0.52), radius: 0, x: 0, y: 7)
     }
 
     func roundedFont(_ size: CGFloat, weight: Font.Weight = .regular) -> some View {
