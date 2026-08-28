@@ -37,34 +37,34 @@ Features
 
 Core
 ├── Persistence           # UserDefaults snapshots
-├── DesignSystem          # shared kawaii colors and view modifiers
+├── DesignSystem          # shared water-silver colors and view modifiers
 ├── DateFormatting
 └── Permissions           # HealthKit authorization boundary
 ```
 
-The current repository keeps the original collaborator-facing SwiftUI presentation in `ContentView.swift` and the original weight store in `Models.swift`; the logical ownership above is the boundary to preserve while those files are split incrementally. New HealthKit code already follows the adapter/coordinator boundary.
+The repository keeps the collaborator-facing SwiftUI presentation in `Shared/UI/ContentView.swift` and the weight store in `Shared/Models/Models.swift`; the logical ownership above is the boundary to preserve while these files are split incrementally. New HealthKit code follows the adapter/coordinator boundary.
 
 ## iOS files
 
-- `ZheBuDeShouSi-iOS/ZheBuDeShouSi/ZheBuDeShouSiApp.swift`: application entry point; creates and injects `AppState`, `HealthStore`, and `HealthSyncCoordinator`.
-- `ZheBuDeShouSi-iOS/ZheBuDeShouSi/Models.swift`: domain enums/models, `AppState`, derived progress and color rules, user actions, and `UserDefaults` snapshot persistence.
-- `ZheBuDeShouSi-iOS/ZheBuDeShouSi/ContentView.swift`: app navigation and SwiftUI presentation. Screens read `AppState`, collect user input, and invoke state methods.
+- `ZheBuDeShouSi-iOS/ZheBuDeShouSi/App/ZheBuDeShouSiApp.swift`: application entry point; creates and injects `AppState`, `HealthStore`, and `HealthSyncCoordinator`.
+- `ZheBuDeShouSi-iOS/ZheBuDeShouSi/Shared/Models/Models.swift`: domain enums/models, `AppState`, derived progress and color rules, shared water-silver palette, user actions, and `UserDefaults` snapshot persistence.
+- `ZheBuDeShouSi-iOS/ZheBuDeShouSi/Shared/UI/ContentView.swift`: app navigation and SwiftUI presentation. Screens read `AppState`, collect user input, and invoke state methods.
 - `ZheBuDeShouSi-iOS/ZheBuDeShouSi/Features/Health/Domain/HealthModels.swift`: body-measurement and habit value objects, including source metadata and presentation labels.
 - `ZheBuDeShouSi-iOS/ZheBuDeShouSi/Features/Health/Application/HealthStore.swift`: local persistence and use cases for body measurements and daily habit completion. This store is independent from weight state so HealthKit can be added behind a separate adapter later.
 - `ZheBuDeShouSi-iOS/ZheBuDeShouSi/Features/HealthKit/Infrastructure/HealthKitClient.swift`: the platform adapter for HealthKit authorization and read-only queries. The fallback implementation keeps macOS builds and previews independent from the iOS-only framework.
 - `ZheBuDeShouSi-iOS/ZheBuDeShouSi/Features/HealthKit/Infrastructure/HealthKitMapper.swift`: converts HealthKit quantities into app-level samples and keeps unit conversion out of stores and views.
 - `ZheBuDeShouSi-iOS/ZheBuDeShouSi/Features/HealthKit/Application/HealthSyncCoordinator.swift`: coordinates authorization, a bounded 90-day import, deduplication, and fan-out into the weight, body-measurement, and habit stores.
-- `ZheBuDeShouSi-iOS/ZheBuDeShouSi/ZheBuDeShouSi.entitlements`: enables the HealthKit capability for iPhone and iPad signing.
-- `ZheBuDeShouSi-iOS/ZheBuDeShouSi/Assets.xcassets/`: icons and image assets.
+- `ZheBuDeShouSi-iOS/ZheBuDeShouSi/App/ZheBuDeShouSi.entitlements`: enables the HealthKit capability for iPhone and iPad signing.
+- `ZheBuDeShouSi-iOS/ZheBuDeShouSi/Resources/Assets.xcassets/`: icons and image assets.
 - `ZheBuDeShouSi-iOS/ZheBuDeShouSi.xcodeproj/`: Xcode targets, platforms, signing, and build settings.
 
 ## Current iOS presentation
 
-- `HomeView` in `ContentView.swift`: a two-part weight workspace modeled on the supplied references. The upper plan card shows initial/current/goal weight and progress; the lower panel shows the trend line followed by date-grouped weight history. It intentionally does not duplicate habit summaries or activity logs.
-- The shared presentation palette is black, white, and platinum; `AppState.weightTone(_:)` remains the single source of truth for green/red weight-value tones.
-- `TrendView` in `ContentView.swift`: white trend workspace with date-period filters, weight/goal chart, stage analysis, weight history, and a separate body-measurement mode. Weight chart data comes from `AppState.records`; body-measurement data comes from `HealthStore`.
-- `HabitsView` in `ContentView.swift`: renders all seven habit rows with a record action. Meal, exercise, and water keep their existing detailed record flow; sleep, bowel movement, medication, and menstrual-cycle notes use `HabitRecordModal` and `HealthStore.recordHabit(_:,on:note:)`.
-- `BottomNav` in `ContentView.swift`: persistent four-item navigation for home, trend, habits, and profile with equal-width slots. Weight recording is opened from the home and trend surfaces.
+- `HomeView` in `Shared/UI/ContentView.swift`: a two-part weight workspace modeled on the supplied references. The upper plan card shows current/goal weight and a linear progress rail; the lower panel shows the trend line followed by date-grouped weight history. It intentionally does not duplicate habit summaries or activity logs.
+- The shared presentation palette is pearl white, graphite, and water-silver; `AppState.weightTone(_:)` remains the single source of truth for green/red weight-value tones.
+- `TrendView` in `Shared/UI/ContentView.swift`: trend workspace with date-period filters, weight/goal chart, stage analysis, weight history, and a separate body-measurement mode. Weight chart data comes from `AppState.records`; body-measurement data comes from `HealthStore`.
+- `HabitsView` in `Shared/UI/ContentView.swift`: renders all seven habit rows with a record action. Meal, exercise, and water keep their existing detailed record flow; sleep, bowel movement, medication, and menstrual-cycle notes use `HabitRecordModal` and `HealthStore.recordHabit(_:,on:note:)`.
+- `BottomNav` in `Shared/UI/ContentView.swift`: persistent four-item navigation for home, trend, habits, and profile with equal-width slots. Weight recording is opened from the home and trend surfaces.
 
 ## iOS state flow
 
@@ -80,8 +80,8 @@ The current repository keeps the original collaborator-facing SwiftUI presentati
 
 ## Editing guide
 
-- Visual-only changes belong in SwiftUI views in `ContentView.swift`.
-- Rules, validation, derived values, and persistence belong in `Models.swift`.
+- Visual-only changes belong in SwiftUI views in `Shared/UI/ContentView.swift`.
+- Rules, validation, derived values, shared palette, and persistence belong in `Shared/Models/Models.swift`.
 - New persisted fields must remain compatible with snapshots created by previous app versions.
 - Body measurements and habits use their own `HealthStore` snapshot key; HealthKit imports preserve the original source metadata and deduplicate by the external sample identifier.
 - The first HealthKit slice imports body mass, waist circumference, dietary energy, dietary water, exercise time, sleep, and menstrual-flow samples. HealthKit does not provide standard values for every requested body circumference, nor a reliable general-purpose bowel-movement source; hips, arms, thighs, calves, bowel movement, and medication remain manual.

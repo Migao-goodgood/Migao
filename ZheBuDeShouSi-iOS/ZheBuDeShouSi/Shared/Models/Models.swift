@@ -277,21 +277,23 @@ final class AppState: ObservableObject {
 }
 
 extension Color {
-    static let pagePink = Color(hex: "F7F6F3")
-    static let panelPink = Color(hex: "E8E4DC")
-    static let strawberry = Color(hex: "252525")
-    static let softPink = Color(hex: "D9D4CB")
-    static let warmText = Color(hex: "252525")
-    static let mutedText = Color(hex: "8D887F")
+    static let pagePink = Color(hex: "F4F7FB")
+    static let panelPink = Color(hex: "E7EDF3")
+    static let strawberry = Color(hex: "1B2B38")
+    static let softPink = Color(hex: "D1DCE5")
+    static let warmText = Color(hex: "1F2A33")
+    static let mutedText = Color(hex: "74818B")
     static let mintGreen = Color(hex: "67AF97")
-    static let mintPale = Color(hex: "E7F0EC")
-    static let lavenderPale = Color(hex: "ECE9E3")
-    static let ink = Color(hex: "252525")
-    static let inkSoft = Color(hex: "4A4A4A")
-    static let platinum = Color(hex: "B8B1A7")
-    static let platinumDeep = Color(hex: "89837A")
-    static let platinumLight = Color(hex: "E9E6E0")
-    static let platinumPale = Color(hex: "F7F6F3")
+    static let mintPale = Color(hex: "E5F1ED")
+    static let lavenderPale = Color(hex: "E8EEF3")
+    static let ink = Color(hex: "172531")
+    static let inkSoft = Color(hex: "354B5A")
+    static let platinum = Color(hex: "B9C4CD")
+    static let platinumDeep = Color(hex: "6D7E8A")
+    static let platinumLight = Color(hex: "E6EDF2")
+    static let platinumPale = Color(hex: "F4F7FB")
+    static let waterAccent = Color(hex: "5D8298")
+    static let waterAccentPale = Color(hex: "E7F0F4")
 
     init(hex: String) {
         let value = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
@@ -314,6 +316,6 @@ extension View {
     }
 
     func roundedFont(_ size: CGFloat, weight: Font.Weight = .regular) -> some View {
-        self.font(.system(size: size, weight: weight, design: .rounded))
+        self.font(.system(size: size, weight: weight, design: .default))
     }
 }
