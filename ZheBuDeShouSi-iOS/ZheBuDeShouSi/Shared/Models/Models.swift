@@ -154,6 +154,7 @@ final class AppState: ObservableObject {
     @Published var water: Int = 1200
     @Published var records: [WeightRecord] = []
     @Published var logs: [ActivityLog] = []
+    @Published private(set) var avatarData: Data?
 
     private let storageKey = "zhebudeshousi.appState"
 
@@ -245,6 +246,11 @@ final class AppState: ObservableObject {
         save()
     }
 
+    func updateAvatar(_ data: Data?) {
+        avatarData = data
+        save()
+    }
+
     private func timeLabel() -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm"
@@ -257,10 +263,11 @@ final class AppState: ObservableObject {
         var water: Int
         var records: [WeightRecord]
         var logs: [ActivityLog]
+        var avatarData: Data?
     }
 
     private func save() {
-        let snapshot = Snapshot(weight: weight, goalWeight: goalWeight, water: water, records: records, logs: logs)
+        let snapshot = Snapshot(weight: weight, goalWeight: goalWeight, water: water, records: records, logs: logs, avatarData: avatarData)
         guard let data = try? JSONEncoder().encode(snapshot) else { return }
         UserDefaults.standard.set(data, forKey: storageKey)
     }
@@ -273,6 +280,7 @@ final class AppState: ObservableObject {
         water = snapshot.water
         records = snapshot.records
         logs = snapshot.logs
+        avatarData = snapshot.avatarData
     }
 }
 

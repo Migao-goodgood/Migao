@@ -30,6 +30,10 @@ macOS 的 App Store Connect 导出配置位于 `Distribution/ExportOptions-mac-a
 
 macOS 版本使用原生 SwiftUI 窗口运行，输入框会自动使用 macOS 的文本输入行为；iOS/iPadOS 版本保留数字键盘和滚轮选择器交互。iPadOS 和 macOS 会将主要内容限制在居中的宽度内，便于宽屏阅读。
 
+## 微信登录
+
+“我的”页头像支持从系统相册选择并保存在本地；右上角微信图标会打开微信登录入口。真实微信账号授权需要在微信开放平台创建移动应用，并补充 AppID、URL Scheme 和回调处理后才能完成 OAuth 登录。
+
 ## 目录
 
 - `ZheBuDeShouSi/App`：App 入口、Info.plist 和签名 entitlements

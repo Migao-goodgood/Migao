@@ -1,7 +1,10 @@
 import SwiftUI
+import PhotosUI
 
 #if os(iOS)
 import UIKit
+#elseif os(macOS)
+import AppKit
 #endif
 
 struct ContentView: View {
@@ -424,6 +427,25 @@ private struct AppHeader: View {
     let eyebrow: String
     let title: String
     let mascot: MascotKind
+    let actionIcon: String?
+    let actionLabel: String?
+    let onAction: (() -> Void)?
+
+    init(
+        eyebrow: String,
+        title: String,
+        mascot: MascotKind,
+        actionIcon: String? = nil,
+        actionLabel: String? = nil,
+        onAction: (() -> Void)? = nil
+    ) {
+        self.eyebrow = eyebrow
+        self.title = title
+        self.mascot = mascot
+        self.actionIcon = actionIcon
+        self.actionLabel = actionLabel
+        self.onAction = onAction
+    }
 
     var body: some View {
         HStack(alignment: .center, spacing: 14) {
@@ -432,15 +454,28 @@ private struct AppHeader: View {
                 Text(title).roundedFont(27, weight: .heavy).foregroundStyle(Color.warmText).lineLimit(2)
             }
             Spacer(minLength: 8)
-            Button(action: {}) {
-                KawaiiMascot(kind: mascot, size: 42)
-                    .frame(width: 54, height: 54)
-                    .background(Color.platinumLight)
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(.white, lineWidth: 2))
-                    .shadow(color: Color.platinum.opacity(0.7), radius: 0, x: 0, y: 5)
+            if let actionIcon, let onAction {
+                Button(action: onAction) {
+                    Image(systemName: actionIcon)
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(Color.waterAccent)
+                        .frame(width: 54, height: 54)
+                        .background(Color.waterAccentPale, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(.white, lineWidth: 2))
+                        .shadow(color: Color.platinum.opacity(0.7), radius: 0, x: 0, y: 5)
+                }
+                .accessibilityLabel(actionLabel ?? "打开")
+            } else {
+                Button(action: {}) {
+                    KawaiiMascot(kind: mascot, size: 42)
+                        .frame(width: 54, height: 54)
+                        .background(Color.platinumLight)
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(.white, lineWidth: 2))
+                        .shadow(color: Color.platinum.opacity(0.7), radius: 0, x: 0, y: 5)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
         .padding(.vertical, 18)
     }
@@ -940,9 +975,15 @@ private struct HabitsView: View {
                 HabitProgressCard(completed: health.todayCompletedHabitCount)
 
                 SectionHeader(title: "今日清单", subtitle: "完成一件，就给自己一个小小肯定", rule: true)
-                VStack(spacing: 0) {
+                LazyVGrid(
+                    columns: [
+                        GridItem(.flexible(), spacing: 12),
+                        GridItem(.flexible(), spacing: 12)
+                    ],
+                    spacing: 12
+                ) {
                     ForEach(HabitKind.allCases) { kind in
-                        HabitRow(
+                        HabitTile(
                             kind: kind,
                             completed: health.isCompleted(kind, on: .now),
                             onToggle: { health.toggleHabit(kind) },
@@ -954,11 +995,8 @@ private struct HabitsView: View {
                                 }
                             }
                         )
-                        if kind != HabitKind.allCases.last { Divider().padding(.leading, 59) }
                     }
                 }
-                .padding(.horizontal, 15)
-                .kawaiiCard(radius: 23)
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 120)
@@ -1001,51 +1039,65 @@ private struct HabitProgressCard: View {
     }
 }
 
-private struct HabitRow: View {
+private struct HabitTile: View {
     let kind: HabitKind
     let completed: Bool
     let onToggle: () -> Void
     let onDetail: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
-            Button(action: onToggle) {
-                ZStack {
-                    Circle()
-                        .fill(completed ? Color.jellyMint : Color.clear)
-                    Circle()
-                        .stroke(completed ? Color.clear : Color.platinum, lineWidth: 2)
-                    if completed {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 12, weight: .heavy))
-                            .foregroundStyle(.white)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top) {
+                Image(systemName: kind.icon)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(Color.waterAccent)
+                    .frame(width: 38, height: 38)
+                    .background(Color(hex: kind.tint), in: Circle())
+                Spacer()
+                Button(action: onToggle) {
+                    ZStack {
+                        Circle()
+                            .fill(completed ? Color.jellyMint : Color.clear)
+                        Circle()
+                            .stroke(completed ? Color.clear : Color.platinum, lineWidth: 2)
+                        if completed {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 11, weight: .heavy))
+                                .foregroundStyle(.white)
+                        }
                     }
+                    .frame(width: 27, height: 27)
                 }
-                .frame(width: 29, height: 29)
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
-
-            Image(systemName: kind.icon)
-                .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(Color.waterAccent)
-                .frame(width: 34, height: 34)
-                .background(Color.platinumLight, in: Circle())
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(kind.title).roundedFont(13, weight: .bold).foregroundStyle(Color.warmText)
-                Text(kind.subtitle).roundedFont(10).foregroundStyle(Color.mutedText)
-            }
-            Spacer()
+            Text(kind.title)
+                .roundedFont(16, weight: .bold)
+                .foregroundStyle(Color.warmText)
+                .padding(.top, 13)
+            Text(kind.subtitle)
+                .roundedFont(10)
+                .foregroundStyle(Color.mutedText)
+                .lineLimit(2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 4)
 
             Button("记录", action: onDetail)
                 .roundedFont(10, weight: .bold)
-                .foregroundStyle(Color.inkSoft)
-                .padding(.horizontal, 9)
-                .frame(height: 29)
-                .background(Color.platinumLight, in: Capsule())
+                .foregroundStyle(Color.waterAccent)
+                .frame(maxWidth: .infinity)
+                .frame(height: 30)
+                .background(Color.waterAccentPale, in: Capsule())
                 .buttonStyle(.plain)
+                .padding(.top, 14)
         }
-        .padding(.vertical, 13)
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 162, alignment: .topLeading)
+        .background(completed ? Color.jellyMint.opacity(0.13) : Color.white, in: RoundedRectangle(cornerRadius: 21, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 21, style: .continuous)
+                .stroke(completed ? Color.jellyMint.opacity(0.45) : Color.platinumLight, lineWidth: 1)
+        )
+        .shadow(color: Color.platinum.opacity(0.17), radius: 8, y: 4)
         .opacity(completed ? 0.68 : 1)
     }
 }
@@ -1142,13 +1194,27 @@ private struct ProfileView: View {
     @ObservedObject var health: HealthStore
     @ObservedObject var healthSync: HealthSyncCoordinator
     let onEditGoal: () -> Void
+    @State private var selectedAvatarItem: PhotosPickerItem?
+    @State private var isWeChatLoginPresented = false
 
     var body: some View {
+        let currentAvatarData = state.avatarData
         ScrollView(showsIndicators: false) {
             VStack(spacing: 0) {
-                AppHeader(eyebrow: "MY KAWAII PLAN", title: "我的可爱变轻计划", mascot: .cloudKitty)
+                AppHeader(
+                    eyebrow: "MY KAWAII PLAN",
+                    title: "我的可爱变轻计划",
+                    mascot: .cloudKitty,
+                    actionIcon: "message.fill",
+                    actionLabel: "微信登录",
+                    onAction: { isWeChatLoginPresented = true }
+                )
                 VStack(spacing: 0) {
-                    KawaiiMascot(kind: .cloudKitty, size: 54).frame(width: 90, height: 90).background(Color.platinumLight, in: RoundedRectangle(cornerRadius: 27, style: .continuous)).shadow(color: Color.platinum.opacity(0.7), radius: 0, x: 0, y: 6)
+                    PhotosPicker(selection: $selectedAvatarItem, matching: .images) {
+                        ProfileAvatar(data: currentAvatarData)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("更换头像")
                     Text("今天也很认真").roundedFont(20, weight: .heavy).foregroundStyle(Color.warmText).padding(.top, 18)
                     Text("已经坚持记录 \(state.records.count) 天").roundedFont(11).foregroundStyle(Color.mutedText).padding(.top, 5)
                     HStack(spacing: 0) {
@@ -1175,6 +1241,141 @@ private struct ProfileView: View {
             .padding(.bottom, 120)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .onChange(of: selectedAvatarItem) { _, item in
+            guard let item else { return }
+            Task { @MainActor in
+                if let data = try? await item.loadTransferable(type: Data.self) {
+                    state.updateAvatar(data)
+                }
+                selectedAvatarItem = nil
+            }
+        }
+        .sheet(isPresented: $isWeChatLoginPresented) {
+            WeChatLoginSheet()
+                .presentationDetents([.height(350)])
+        }
+    }
+}
+
+private struct ProfileAvatar: View {
+    let data: Data?
+
+    var body: some View {
+        ZStack(alignment: .bottomTrailing) {
+            avatarContent
+                .frame(width: 90, height: 90)
+                .background(Color.panelPink, in: RoundedRectangle(cornerRadius: 27, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 27, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 27, style: .continuous).stroke(.white, lineWidth: 2))
+                .shadow(color: Color.platinum.opacity(0.7), radius: 0, x: 0, y: 6)
+
+            Image(systemName: "camera.fill")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 27, height: 27)
+                .background(Color.jellyPink, in: Circle())
+                .overlay(Circle().stroke(.white, lineWidth: 2))
+                .offset(x: 3, y: 3)
+        }
+    }
+
+    @ViewBuilder
+    private var avatarContent: some View {
+        #if os(iOS)
+        if let data, let image = UIImage(data: data) {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+        } else {
+            KawaiiMascot(kind: .cloudKitty, size: 54)
+        }
+        #elseif os(macOS)
+        if let data, let image = NSImage(data: data) {
+            Image(nsImage: image)
+                .resizable()
+                .scaledToFill()
+        } else {
+            KawaiiMascot(kind: .cloudKitty, size: 54)
+        }
+        #endif
+    }
+}
+
+private struct WeChatLoginSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var statusMessage = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 12) {
+                Image(systemName: "message.fill")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(Color.jellyMint)
+                    .frame(width: 42, height: 42)
+                    .background(Color.mintPale, in: Circle())
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("微信登录")
+                        .roundedFont(22, weight: .heavy)
+                        .foregroundStyle(Color.warmText)
+                    Text("使用微信账号继续你的轻盈记录")
+                        .roundedFont(11, weight: .medium)
+                        .foregroundStyle(Color.mutedText)
+                }
+                Spacer()
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Color.inkSoft)
+                        .frame(width: 32, height: 32)
+                        .background(Color.platinumLight, in: Circle())
+                }
+                .buttonStyle(.plain)
+            }
+
+            Text("登录后可在不同设备继续查看体重、趋势和习惯记录。")
+                .roundedFont(13, weight: .medium)
+                .foregroundStyle(Color.inkSoft)
+                .lineSpacing(4)
+                .padding(.top, 22)
+
+            Button(action: openWeChat) {
+                Label("使用微信登录", systemImage: "arrow.up.forward.app")
+                    .roundedFont(14, weight: .bold)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, minHeight: 50)
+                    .background(
+                        LinearGradient(colors: [Color.jellyMint, Color.waterAccent], startPoint: .leading, endPoint: .trailing),
+                        in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    )
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 22)
+
+            Text("当前工程还需要配置微信开放平台 AppID 和回调地址，才能完成真实账号授权。")
+                .roundedFont(10, weight: .medium)
+                .foregroundStyle(Color.mutedText)
+                .lineSpacing(3)
+                .padding(.top, 14)
+
+            if !statusMessage.isEmpty {
+                Text(statusMessage)
+                    .roundedFont(10, weight: .bold)
+                    .foregroundStyle(Color.waterAccent)
+                    .padding(.top, 8)
+            }
+        }
+        .padding(25)
+        .background(Color.platinumPale)
+    }
+
+    private func openWeChat() {
+        #if os(iOS)
+        guard let url = URL(string: "weixin://") else { return }
+        UIApplication.shared.open(url)
+        statusMessage = "已尝试打开微信，请完成授权后返回。"
+        #else
+        statusMessage = "请在 iPhone 上使用微信授权。"
+        #endif
     }
 }
 

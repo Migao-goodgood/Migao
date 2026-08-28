@@ -47,7 +47,7 @@ The repository keeps the collaborator-facing SwiftUI presentation in `Shared/UI/
 ## iOS files
 
 - `ZheBuDeShouSi-iOS/ZheBuDeShouSi/App/ZheBuDeShouSiApp.swift`: application entry point; creates and injects `AppState`, `HealthStore`, and `HealthSyncCoordinator`.
-- `ZheBuDeShouSi-iOS/ZheBuDeShouSi/Shared/Models/Models.swift`: domain enums/models, `AppState`, derived progress and color rules, shared jelly palette, user actions, and `UserDefaults` snapshot persistence.
+- `ZheBuDeShouSi-iOS/ZheBuDeShouSi/Shared/Models/Models.swift`: domain enums/models, `AppState`, derived progress and color rules, shared jelly palette, avatar snapshot persistence, user actions, and `UserDefaults` snapshot persistence.
 - `ZheBuDeShouSi-iOS/ZheBuDeShouSi/Shared/UI/ContentView.swift`: app navigation and SwiftUI presentation. Screens read `AppState`, collect user input, and invoke state methods.
 - `ZheBuDeShouSi-iOS/ZheBuDeShouSi/Features/Health/Domain/HealthModels.swift`: body-measurement and habit value objects, including source metadata and presentation labels.
 - `ZheBuDeShouSi-iOS/ZheBuDeShouSi/Features/Health/Application/HealthStore.swift`: local persistence and use cases for body measurements and daily habit completion. This store is independent from weight state so HealthKit can be added behind a separate adapter later.
@@ -63,7 +63,8 @@ The repository keeps the collaborator-facing SwiftUI presentation in `Shared/UI/
 - `HomeView` in `Shared/UI/ContentView.swift`: a two-part weight workspace modeled on the supplied references. The upper plan card shows current/goal weight and a linear progress rail; the lower panel shows a tappable weight trend preview followed by date-grouped weight history. It intentionally does not duplicate habit summaries or activity logs.
 - The shared presentation palette is cream white, jelly pink, water blue, and mint; `AppState.weightTone(_:)` remains the single source of truth for green/red weight-value tones.
 - `TrendView` in `Shared/UI/ContentView.swift`: trend workspace with date-period filters, a weight-only chart, stage analysis, weight history, and a separate body-measurement mode. Weight chart data comes from `AppState.records`; body-measurement data comes from `HealthStore`.
-- `HabitsView` in `Shared/UI/ContentView.swift`: renders all seven habit rows with a record action. Meal, exercise, and water keep their existing detailed record flow; sleep, bowel movement, medication, and menstrual-cycle notes use `HabitRecordModal` and `HealthStore.recordHabit(_:,on:note:)`.
+- `HabitsView` in `Shared/UI/ContentView.swift`: renders all seven habits as two-column tiles with independent completion toggles and record actions. Meal, exercise, and water keep their existing detailed record flow; sleep, bowel movement, medication, and menstrual-cycle notes use `HabitRecordModal` and `HealthStore.recordHabit(_:,on:note:)`.
+- `ProfileView` in `Shared/UI/ContentView.swift`: the main avatar opens `PhotosPicker` and persists selected image data through `AppState`; the header action opens the WeChat login surface. Real WeChat OAuth still requires an Open Platform AppID and callback configuration.
 - `BottomNav` in `Shared/UI/ContentView.swift`: persistent four-item navigation for home, trend, habits, and profile with equal-width slots. Weight recording is opened from the home and trend surfaces.
 
 ## iOS state flow
