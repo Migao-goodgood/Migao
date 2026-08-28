@@ -21,7 +21,7 @@ struct ContentView: View {
             Group {
                 switch tab {
                 case .home:
-                    HomeView(state: state, onRecord: present, onEditGoal: presentGoalEditor)
+                    HomeView(state: state, onRecord: present, onEditGoal: presentGoalEditor, onShowTrend: showTrend)
                 case .trend:
                     TrendView(state: state, health: health, onRecord: present)
                 case .habits:
@@ -84,18 +84,23 @@ struct ContentView: View {
     private func dismissGoalEditor() {
         withAnimation { isEditingGoal = false }
     }
+
+    private func showTrend() {
+        withAnimation(.easeInOut(duration: 0.2)) { tab = .trend }
+    }
 }
 
 private struct HomeView: View {
     @ObservedObject var state: AppState
     let onRecord: (RecordType) -> Void
     let onEditGoal: () -> Void
+    let onShowTrend: () -> Void
 
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 16) {
                 HomePlanCard(state: state, onRecord: { onRecord(.weight) }, onEditGoal: onEditGoal)
-                HomeTrendAndHistory(state: state)
+                HomeTrendAndHistory(state: state, onShowTrend: onShowTrend)
             }
             .padding(.horizontal, 16)
             .padding(.top, 14)
@@ -129,7 +134,7 @@ private struct HomePlanCard: View {
                         .foregroundStyle(Color.ink)
                         .padding(.horizontal, 12)
                         .frame(height: 32)
-                        .background(Color.platinumLight, in: Capsule())
+                        .background(Color.waterAccentPale, in: Capsule())
                     Text("持续记录")
                         .roundedFont(10, weight: .medium)
                         .foregroundStyle(Color.platinumDeep)
@@ -188,7 +193,7 @@ private struct HomePlanCard: View {
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(Color.ink)
                     .frame(width: 22, height: 22)
-                    .background(Color.platinumLight, in: Circle())
+                    .background(Color.jellyMint.opacity(0.3), in: Circle())
                 Text(progressSummary)
                     .roundedFont(11, weight: .bold)
                     .foregroundStyle(Color.inkSoft)
@@ -245,7 +250,7 @@ private struct HomeProgressRail: View {
                 Capsule()
                     .fill(Color.platinumLight)
                 Capsule()
-                    .fill(LinearGradient(colors: [Color.platinum, Color.inkSoft], startPoint: .leading, endPoint: .trailing))
+                    .fill(LinearGradient(colors: [Color.jellyPink, Color.jellyBlue], startPoint: .leading, endPoint: .trailing))
                     .frame(width: max(16, markerOffset + 14))
                 Circle()
                     .fill(Color.ink)
@@ -260,20 +265,26 @@ private struct HomeProgressRail: View {
 
 private struct HomeTrendAndHistory: View {
     @ObservedObject var state: AppState
+    let onShowTrend: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .top, spacing: 12) {
-                Text("查看\n趋势")
-                    .roundedFont(19, weight: .heavy)
-                    .foregroundStyle(Color.waterAccent)
-                    .lineSpacing(4)
-                Rectangle()
-                    .fill(Color.platinum)
-                    .frame(width: 2, height: 53)
-                TrendChart(records: state.records, goal: state.goalWeight)
-                    .frame(height: 82)
+            Button(action: onShowTrend) {
+                HStack(alignment: .top, spacing: 12) {
+                    Text("查看\n趋势")
+                        .roundedFont(19, weight: .heavy)
+                        .foregroundStyle(Color.waterAccent)
+                        .lineSpacing(4)
+                    Rectangle()
+                        .fill(Color.platinum)
+                        .frame(width: 2, height: 53)
+                    TrendChart(records: state.records, goal: state.goalWeight)
+                        .frame(height: 82)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel("查看趋势")
             .padding(.top, 17)
             .padding(.horizontal, 17)
             .padding(.bottom, 16)
@@ -570,11 +581,16 @@ private struct TrendView: View {
             .background(Color.platinumPale, in: Capsule())
             .padding(.top, 12)
 
-            HStack(spacing: 12) {
-                TrendMetricPill(title: "体重", icon: "scalemass.fill", selected: true)
-                TrendMetricPill(title: "脂肪", icon: "drop.fill", selected: false)
-                TrendMetricPill(title: "肌肉", icon: "figure.strengthtraining.traditional", selected: false)
+            HStack(spacing: 8) {
+                Image(systemName: "scalemass.fill")
+                    .font(.system(size: 12, weight: .bold))
+                Text("体重趋势")
+                    .roundedFont(14, weight: .bold)
             }
+            .foregroundStyle(Color.waterAccent)
+            .padding(.horizontal, 13)
+            .frame(height: 36)
+            .background(Color.waterAccentPale, in: Capsule())
             .padding(.top, 21)
 
             VStack(alignment: .leading, spacing: 0) {
@@ -627,7 +643,7 @@ private struct TrendView: View {
                         .font(.system(size: 15, weight: .bold))
                         .foregroundStyle(Color.inkSoft)
                         .frame(width: 32, height: 32)
-                        .background(Color.platinumLight, in: Circle())
+                    .background(Color.jellyMint.opacity(0.28), in: Circle())
                 }
                 .buttonStyle(.plain)
             }
@@ -681,23 +697,6 @@ private struct TrendView: View {
     }
 }
 
-private struct TrendMetricPill: View {
-    let title: String
-    let icon: String
-    let selected: Bool
-
-    var body: some View {
-        HStack(spacing: 5) {
-            Image(systemName: icon).font(.system(size: 12, weight: .bold))
-            Text(title).roundedFont(14, weight: selected ? .bold : .medium)
-        }
-        .foregroundStyle(selected ? .white : Color.platinumDeep)
-        .frame(maxWidth: .infinity)
-        .frame(height: 38)
-        .background(selected ? Color.ink : Color.clear, in: Capsule())
-    }
-}
-
 private struct TrendChart: View {
     let records: [WeightRecord]
     let goal: Double
@@ -731,10 +730,10 @@ private struct TrendChart: View {
                     }.fill(LinearGradient(colors: [Color.platinum.opacity(0.58), Color.platinumPale.opacity(0.18)], startPoint: .top, endPoint: .bottom))
                     Path { path in
                         path.move(to: points[0]); points.dropFirst().forEach { path.addLine(to: $0) }
-                    }.stroke(Color.inkSoft, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+                    }.stroke(Color.waterAccent, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
                 }
                 ForEach(Array(points.enumerated()), id: \.offset) { index, point in
-                    Circle().fill(index == points.count - 1 ? Color.ink : Color.platinumDeep).frame(width: index == points.count - 1 ? 13 : 9, height: index == points.count - 1 ? 13 : 9).overlay(Circle().stroke(.white, lineWidth: 3)).position(point)
+                    Circle().fill(index == points.count - 1 ? Color.jellyPink : Color.waterAccent).frame(width: index == points.count - 1 ? 13 : 9, height: index == points.count - 1 ? 13 : 9).overlay(Circle().stroke(.white, lineWidth: 3)).position(point)
                 }
                 if points.isEmpty {
                     Text("记录体重后，这里会出现趋势")
@@ -835,12 +834,12 @@ private struct MeasurementChart: View {
                         path.move(to: points[0])
                         points.dropFirst().forEach { path.addLine(to: $0) }
                     }
-                    .stroke(Color.inkSoft, style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+                    .stroke(Color.waterAccent, style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
                 }
 
                 ForEach(Array(points.enumerated()), id: \.offset) { _, point in
                     Circle()
-                        .fill(Color.platinumDeep)
+                        .fill(Color.jellyPink)
                         .frame(width: 9, height: 9)
                         .overlay(Circle().stroke(.white, lineWidth: 2))
                         .position(point)
@@ -981,7 +980,7 @@ private struct HabitProgressCard: View {
                 Circle().stroke(Color.platinumLight, lineWidth: 7)
                 Circle()
                     .trim(from: 0, to: CGFloat(completed) / 7)
-                    .stroke(Color.inkSoft, style: StrokeStyle(lineWidth: 7, lineCap: .round))
+                    .stroke(Color.jellyPink, style: StrokeStyle(lineWidth: 7, lineCap: .round))
                     .rotationEffect(.degrees(-90))
                 Text("\(completed)/7").roundedFont(15, weight: .heavy).foregroundStyle(Color.warmText)
             }
@@ -1013,7 +1012,7 @@ private struct HabitRow: View {
             Button(action: onToggle) {
                 ZStack {
                     Circle()
-                        .fill(completed ? Color.inkSoft : Color.clear)
+                        .fill(completed ? Color.jellyMint : Color.clear)
                     Circle()
                         .stroke(completed ? Color.clear : Color.platinum, lineWidth: 2)
                     if completed {
@@ -1028,7 +1027,7 @@ private struct HabitRow: View {
 
             Image(systemName: kind.icon)
                 .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(Color.inkSoft)
+                .foregroundStyle(Color.waterAccent)
                 .frame(width: 34, height: 34)
                 .background(Color.platinumLight, in: Circle())
 
@@ -1096,7 +1095,7 @@ private struct HabitRecordModal: View {
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity, minHeight: 52)
                     .background(
-                        LinearGradient(colors: [Color.inkSoft, Color.platinumDeep], startPoint: .leading, endPoint: .trailing),
+                        LinearGradient(colors: [Color.jellyPink, Color.jellyBlue], startPoint: .leading, endPoint: .trailing),
                         in: RoundedRectangle(cornerRadius: 17, style: .continuous)
                     )
             }
@@ -1350,7 +1349,7 @@ private struct GoalWeightModal: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)
                     .background(
-                        LinearGradient(colors: [Color.inkSoft, Color.platinumDeep], startPoint: .leading, endPoint: .trailing),
+                        LinearGradient(colors: [Color.jellyPink, Color.jellyBlue], startPoint: .leading, endPoint: .trailing),
                         in: RoundedRectangle(cornerRadius: 17, style: .continuous)
                     )
                     .shadow(color: Color.platinum.opacity(0.75), radius: 0, x: 0, y: 6)
