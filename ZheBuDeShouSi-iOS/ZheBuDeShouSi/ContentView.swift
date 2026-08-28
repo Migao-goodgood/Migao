@@ -32,7 +32,7 @@ struct ContentView: View {
             }
             .frame(maxWidth: usesWideLayout ? 720 : .infinity, maxHeight: .infinity, alignment: .top)
 
-            BottomNav(selected: $tab, onWeigh: { present(.weight) })
+            BottomNav(selected: $tab)
 
             if let recordType {
                 Color.black.opacity(0.32)
@@ -113,55 +113,50 @@ private struct HomePlanCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .center, spacing: 8) {
-                Text("体重管理方案")
-                    .roundedFont(23, weight: .heavy)
-                    .foregroundStyle(Color.ink)
-                Image(systemName: "eye.fill")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(Color.platinumDeep)
-                Spacer()
-                Text("第")
-                    .roundedFont(15, weight: .medium)
-                    .foregroundStyle(Color.platinumDeep)
-                Text("\(currentWeek)/39")
-                    .roundedFont(16, weight: .heavy)
-                    .foregroundStyle(Color.ink)
-                    .padding(.horizontal, 12)
-                    .frame(height: 34)
-                    .background(Color.platinumLight, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
-                Text("周")
-                    .roundedFont(15, weight: .medium)
-                    .foregroundStyle(Color.platinumDeep)
-            }
-
-            VStack(spacing: 0) {
-                HomePlanGauge(progress: state.goalProgress)
-                    .frame(width: 206, height: 108)
-                    .padding(.top, 13)
-                VStack(spacing: 2) {
-                    Text(String(format: "%.1f", max(0, state.startWeight - state.weight)))
-                        .roundedFont(34, weight: .heavy)
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("轻盈进度")
+                        .roundedFont(26, weight: .heavy)
                         .foregroundStyle(Color.ink)
-                    Text("已减（kg）")
-                        .roundedFont(14, weight: .medium)
+                    Text("把每天的记录，变成看得见的变化")
+                        .roundedFont(11, weight: .medium)
                         .foregroundStyle(Color.platinumDeep)
                 }
-                .padding(.top, 5)
+                Spacer()
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("第 \(currentWeek) / 39 周")
+                        .roundedFont(13, weight: .bold)
+                        .foregroundStyle(Color.ink)
+                        .padding(.horizontal, 12)
+                        .frame(height: 32)
+                        .background(Color.platinumLight, in: Capsule())
+                    Text("持续记录")
+                        .roundedFont(10, weight: .medium)
+                        .foregroundStyle(Color.platinumDeep)
+                }
             }
 
-            HStack(alignment: .lastTextBaseline) {
-                HomePlanMetric(title: "初始", value: state.startWeight, alignment: .leading)
-                Spacer(minLength: 8)
-                Button(action: onRecord) {
-                    VStack(spacing: 4) {
-                        Text("今日")
+            HStack(alignment: .lastTextBaseline, spacing: 5) {
+                Text(String(format: "%.1f", state.weight))
+                    .roundedFont(43, weight: .heavy)
+                    .foregroundStyle(state.weightTone(state.weight))
+                Text("kg")
+                    .roundedFont(13, weight: .bold)
+                    .foregroundStyle(Color.platinumDeep)
+                Text("今日体重")
+                    .roundedFont(12, weight: .medium)
+                    .foregroundStyle(Color.platinumDeep)
+                    .padding(.leading, 4)
+                Spacer(minLength: 12)
+                Button(action: onEditGoal) {
+                    VStack(alignment: .trailing, spacing: 3) {
+                        Text("目标体重")
                             .roundedFont(11, weight: .medium)
                             .foregroundStyle(Color.platinumDeep)
                         HStack(alignment: .lastTextBaseline, spacing: 3) {
-                            Text(String(format: "%.1f", state.weight))
+                            Text(String(format: "%.1f", state.goalWeight))
                                 .roundedFont(25, weight: .heavy)
-                                .foregroundStyle(state.weightTone(state.weight))
+                                .foregroundStyle(Color.ink)
                             Text("kg")
                                 .roundedFont(11, weight: .bold)
                                 .foregroundStyle(Color.platinumDeep)
@@ -169,85 +164,97 @@ private struct HomePlanCard: View {
                     }
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("记录今日体重")
-                Spacer(minLength: 8)
-                Button(action: onEditGoal) {
-                    HomePlanMetric(title: "目标", value: state.goalWeight, alignment: .trailing)
-                }
-                .buttonStyle(.plain)
                 .accessibilityLabel("编辑目标体重")
             }
-            .padding(.horizontal, 3)
-            .padding(.top, 2)
+            .padding(.top, 24)
+
+            HomeProgressRail(progress: state.goalProgress)
+                .frame(height: 16)
+                .padding(.top, 22)
+
+            HStack {
+                Text(String(format: "起点 %.1f kg", state.startWeight))
+                Spacer()
+                Text(String(format: "已减 %.1f kg", max(0, state.startWeight - state.weight)))
+                Spacer()
+                Text(String(format: "终点 %.1f kg", state.goalWeight))
+            }
+            .roundedFont(10, weight: .medium)
+            .foregroundStyle(Color.platinumDeep)
+            .padding(.top, 8)
+
+            HStack(spacing: 8) {
+                Image(systemName: state.weightGap > 0.05 ? "arrow.down.right" : "checkmark")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(Color.ink)
+                    .frame(width: 22, height: 22)
+                    .background(Color.platinumLight, in: Circle())
+                Text(progressSummary)
+                    .roundedFont(11, weight: .bold)
+                    .foregroundStyle(Color.inkSoft)
+                Spacer()
+                Button(action: onRecord) {
+                    HStack(spacing: 5) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 11, weight: .heavy))
+                        Text("记录体重")
+                            .roundedFont(11, weight: .bold)
+                    }
+                    .foregroundStyle(Color.ink)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("记录今日体重")
+            }
+            .padding(.top, 17)
         }
         .padding(.horizontal, 20)
-        .padding(.top, 17)
-        .padding(.bottom, 19)
-        .background(Color.white, in: RoundedRectangle(cornerRadius: 27, style: .continuous))
-        .shadow(color: Color.platinum.opacity(0.26), radius: 17, y: 8)
+        .padding(.top, 19)
+        .padding(.bottom, 18)
+        .background(
+            LinearGradient(colors: [Color.white, Color.platinumPale], startPoint: .topLeading, endPoint: .bottomTrailing),
+            in: RoundedRectangle(cornerRadius: 27, style: .continuous)
+        )
+        .overlay(RoundedRectangle(cornerRadius: 27, style: .continuous).stroke(Color.platinumLight, lineWidth: 1))
+        .shadow(color: Color.platinum.opacity(0.28), radius: 18, y: 9)
     }
 
     private var currentWeek: Int {
         max(1, min(39, Int(ceil(Double(max(1, state.records.count)) / 7.0))))
     }
-}
 
-private struct HomePlanMetric: View {
-    let title: String
-    let value: Double
-    let alignment: HorizontalAlignment
-
-    var body: some View {
-        VStack(alignment: alignment, spacing: 3) {
-            Text(String(format: "%.1f", value))
-                .roundedFont(25, weight: .heavy)
-                .foregroundStyle(Color.ink)
-            Text(title)
-                .roundedFont(14, weight: .medium)
-                .foregroundStyle(Color.platinumDeep)
+    private var progressSummary: String {
+        if state.weightGap > 0.05 {
+            return String(format: "距离目标还差 %.1f kg", state.weightGap)
         }
+        if state.weightGap < -0.05 {
+            return String(format: "已超过目标 %.1f kg", abs(state.weightGap))
+        }
+        return "已到达目标体重"
     }
 }
 
-private struct HomePlanGauge: View {
+private struct HomeProgressRail: View {
     let progress: Double
 
     var body: some View {
-        ZStack {
-            HomePlanArc(progress: 1)
-                .stroke(Color.platinumLight, style: StrokeStyle(lineWidth: 14, lineCap: .round))
-            HomePlanArc(progress: min(1, max(0, progress)))
-                .stroke(
-                    LinearGradient(colors: [Color.platinum, Color.ink], startPoint: .leading, endPoint: .trailing),
-                    style: StrokeStyle(lineWidth: 14, lineCap: .round)
-                )
-        }
-    }
-}
-
-private struct HomePlanArc: Shape {
-    let progress: Double
-
-    func path(in rect: CGRect) -> Path {
-        let center = CGPoint(x: rect.midX, y: rect.height * 0.72)
-        let radiusX = rect.width / 2 - 8
-        let radiusY = rect.height * 0.54
-        var path = Path()
-        let steps = 48
-        for step in 0...steps {
-            let degrees = 160 + 220 * progress * Double(step) / Double(steps)
-            let radians = degrees * .pi / 180
-            let point = CGPoint(
-                x: center.x + radiusX * cos(radians),
-                y: center.y + radiusY * sin(radians)
-            )
-            if step == 0 {
-                path.move(to: point)
-            } else {
-                path.addLine(to: point)
+        GeometryReader { proxy in
+            let clamped = min(1, max(0, progress))
+            let width = max(0, proxy.size.width - 14)
+            let markerOffset = width * clamped
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(Color.platinumLight)
+                Capsule()
+                    .fill(LinearGradient(colors: [Color.platinum, Color.inkSoft], startPoint: .leading, endPoint: .trailing))
+                    .frame(width: max(16, markerOffset + 14))
+                Circle()
+                    .fill(Color.ink)
+                    .frame(width: 14, height: 14)
+                    .overlay(Circle().stroke(.white, lineWidth: 2))
+                    .offset(x: markerOffset)
             }
         }
-        return path
+        .frame(height: 14)
     }
 }
 
@@ -1234,20 +1241,11 @@ private struct SettingRow: View { let title: String; let icon: String; var body:
 
 private struct BottomNav: View {
     @Binding var selected: AppTab
-    let onWeigh: () -> Void
 
     var body: some View {
         HStack(spacing: 0) {
             navItem(.home)
             navItem(.trend)
-            Button(action: onWeigh) {
-                Color.clear
-                    .contentShape(Rectangle())
-                .frame(maxWidth: .infinity)
-                .frame(height: 58)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("记录体重")
             navItem(.habits)
             navItem(.mine)
         }
