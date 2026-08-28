@@ -60,7 +60,7 @@ The repository keeps the collaborator-facing SwiftUI presentation in `Shared/UI/
 
 ## Current iOS presentation
 
-- `HomeView` in `Shared/UI/ContentView.swift`: a two-part weight workspace modeled on the supplied references. The upper plan card shows current/goal weight and a linear progress rail; the lower panel shows a tappable weight trend preview followed by date-grouped weight history. It intentionally does not duplicate habit summaries or activity logs.
+- `HomeView` in `Shared/UI/ContentView.swift`: a two-part weight workspace modeled on the supplied references. The upper plan card shows current/goal weight and a linear progress rail; the lower area separates a tappable weight trend preview from date-grouped journal cards with fixed time/weight/change columns. It intentionally does not duplicate habit summaries or activity logs.
 - The shared presentation palette is cream white, jelly pink, water blue, and mint; `AppState.weightTone(_:)` remains the single source of truth for green/red weight-value tones.
 - `TrendView` in `Shared/UI/ContentView.swift`: trend workspace with date-period filters, a weight-only chart, stage analysis, weight history, and a separate body-measurement mode. Weight chart data comes from `AppState.records`; body-measurement data comes from `HealthStore`.
 - `HabitsView` in `Shared/UI/ContentView.swift`: renders all seven habits as two-column tiles with independent completion toggles and record actions. Meal, exercise, and water keep their existing detailed record flow; sleep, bowel movement, medication, and menstrual-cycle notes use `HabitRecordModal` and `HealthStore.recordHabit(_:,on:note:)`.

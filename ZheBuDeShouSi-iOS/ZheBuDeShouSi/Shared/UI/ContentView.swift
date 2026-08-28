@@ -271,7 +271,7 @@ private struct HomeTrendAndHistory: View {
     let onShowTrend: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .center, spacing: 14) {
             Button(action: onShowTrend) {
                 HStack(alignment: .top, spacing: 12) {
                     Text("查看\n趋势")
@@ -288,21 +288,17 @@ private struct HomeTrendAndHistory: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("查看趋势")
-            .padding(.top, 17)
+            .padding(.vertical, 17)
             .padding(.horizontal, 17)
-            .padding(.bottom, 16)
-
-            Rectangle()
-                .fill(Color.platinumLight)
-                .frame(height: 1)
+            .frame(maxWidth: 620)
+            .background(Color.white, in: RoundedRectangle(cornerRadius: 27, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 27, style: .continuous).stroke(Color.platinumLight, lineWidth: 1))
+            .shadow(color: Color.platinum.opacity(0.2), radius: 15, y: 7)
 
             HomeWeightHistory(state: state)
-                .padding(.horizontal, 17)
-                .padding(.top, 16)
+                .frame(maxWidth: 620)
         }
-        .padding(.bottom, 19)
-        .background(Color.white, in: RoundedRectangle(cornerRadius: 27, style: .continuous))
-        .shadow(color: Color.platinum.opacity(0.23), radius: 17, y: 8)
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -327,6 +323,9 @@ private struct HomeWeightHistory: View {
                 Text("共 \(state.records.count) 条")
                     .roundedFont(11, weight: .medium)
                     .foregroundStyle(Color.platinumDeep)
+                    .padding(.horizontal, 10)
+                    .frame(height: 25)
+                    .background(Color.platinumLight, in: Capsule())
             }
 
             if groups.isEmpty {
@@ -336,25 +335,15 @@ private struct HomeWeightHistory: View {
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 34)
             } else {
-                ForEach(groups) { group in
-                    Text(dayTitle(group.date))
-                        .roundedFont(16, weight: .heavy)
-                        .foregroundStyle(Color.inkSoft)
-                        .padding(.top, 18)
-                        .padding(.bottom, 8)
-
-                    ForEach(group.records) { record in
-                        HomeWeightRow(record: record, state: state)
-                        if record.id != group.records.last?.id {
-                            Rectangle()
-                                .fill(Color.platinumLight)
-                                .frame(height: 1)
-                                .padding(.leading, 53)
-                        }
+                LazyVStack(spacing: 12) {
+                    ForEach(groups) { group in
+                        HomeHistoryDayCard(group: group, state: state, title: dayTitle(group.date))
                     }
                 }
+                .padding(.top, 15)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func dayTitle(_ date: Date) -> String {
@@ -362,6 +351,44 @@ private struct HomeWeightHistory: View {
         formatter.dateFormat = "M月d日 EEEE"
         formatter.locale = Locale(identifier: "zh_CN")
         return formatter.string(from: date)
+    }
+}
+
+private struct HomeHistoryDayCard: View {
+    let group: HomeDayGroup
+    @ObservedObject var state: AppState
+    let title: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .center, spacing: 8) {
+                Image(systemName: "calendar")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Color.jellyPink)
+                Text(title)
+                    .roundedFont(14, weight: .bold)
+                    .foregroundStyle(Color.inkSoft)
+                Spacer()
+                Text("\(group.records.count) 条")
+                    .roundedFont(10, weight: .medium)
+                    .foregroundStyle(Color.platinumDeep)
+            }
+            .padding(.bottom, 7)
+
+            ForEach(Array(group.records.enumerated()), id: \.element.id) { index, record in
+                HomeWeightRow(record: record, state: state)
+                if index < group.records.count - 1 {
+                    Rectangle()
+                        .fill(Color.platinumLight)
+                        .frame(height: 1)
+                        .padding(.leading, 53)
+                }
+            }
+        }
+        .padding(.horizontal, 13)
+        .padding(.vertical, 11)
+        .background(Color.lavenderPale.opacity(0.42), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color.platinumLight, lineWidth: 1))
     }
 }
 
@@ -400,6 +427,7 @@ private struct HomeWeightRow: View {
                     Text(String(format: "%.1f", record.weight))
                         .roundedFont(29, weight: .heavy)
                         .foregroundStyle(state.weightTone(record.weight))
+                        .layoutPriority(1)
                     Text("kg")
                         .roundedFont(12, weight: .bold)
                         .foregroundStyle(Color.platinumDeep)
@@ -409,12 +437,20 @@ private struct HomeWeightRow: View {
                     .foregroundStyle(Color.platinumDeep)
                     .lineLimit(1)
             }
-            Spacer(minLength: 8)
-            Text(changeText)
-                .roundedFont(12, weight: .heavy)
-                .foregroundStyle(record.change > 0 ? Color(hex: "E47782") : Color(hex: "58A993"))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .trailing, spacing: 3) {
+                Text(changeText)
+                    .roundedFont(13, weight: .heavy)
+                    .foregroundStyle(record.change > 0 ? Color(hex: "E47782") : Color(hex: "58A993"))
+                if abs(record.change) >= 0.05 {
+                    Text("较上次")
+                        .roundedFont(9, weight: .medium)
+                        .foregroundStyle(Color.platinumDeep)
+                }
+            }
+            .frame(width: 60, alignment: .trailing)
         }
-        .padding(.vertical, 10)
+        .frame(minHeight: 68)
     }
 
     private var changeText: String {
