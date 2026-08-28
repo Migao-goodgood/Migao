@@ -21,7 +21,7 @@ struct ContentView: View {
             Group {
                 switch tab {
                 case .home:
-                    HomeView(state: state, health: health, onRecord: present, onEditGoal: presentGoalEditor)
+                    HomeView(state: state, onRecord: present, onEditGoal: presentGoalEditor)
                 case .trend:
                     TrendView(state: state, health: health, onRecord: present)
                 case .habits:
@@ -88,256 +88,316 @@ struct ContentView: View {
 
 private struct HomeView: View {
     @ObservedObject var state: AppState
-    @ObservedObject var health: HealthStore
     let onRecord: (RecordType) -> Void
     let onEditGoal: () -> Void
 
     var body: some View {
-        ZStack(alignment: .top) {
-            LinearGradient(colors: [Color(hex: "07A9E5"), Color(hex: "69C7EF"), Color(hex: "F7F8FA")], startPoint: .top, endPoint: .bottom)
-                .frame(height: 470)
-                .ignoresSafeArea(edges: .top)
-
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 0) {
-                    HomeHeader(recordCount: state.records.count)
-                    HomeWeightCard(state: state, onRecord: { onRecord(.weight) }, onEditGoal: onEditGoal)
-                        .padding(.top, 9)
-
-                    HomeTrendPreview(state: state)
-                        .padding(.top, 18)
-
-                    TodayRecordSection(state: state)
-                        .padding(.top, 23)
-                }
-                .padding(.horizontal, 18)
-                .padding(.bottom, 122)
-                .frame(maxWidth: .infinity, alignment: .leading)
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 16) {
+                HomePlanCard(state: state, onRecord: { onRecord(.weight) }, onEditGoal: onEditGoal)
+                HomeTrendAndHistory(state: state)
             }
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 122)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .background(Color(hex: "F4F7F8").ignoresSafeArea())
     }
 }
 
-private struct HomeHeader: View {
-    let recordCount: Int
-
-    var body: some View {
-        VStack(spacing: 16) {
-            HStack(alignment: .center, spacing: 14) {
-                Text("首页")
-                    .roundedFont(28, weight: .heavy)
-                Text("燃脂营")
-                    .roundedFont(19, weight: .heavy)
-                    .foregroundStyle(Color(hex: "FF8C38"))
-                Text("饮食")
-                    .roundedFont(18, weight: .bold)
-                    .foregroundStyle(.white.opacity(0.72))
-                Text("运动")
-                    .roundedFont(18, weight: .bold)
-                    .foregroundStyle(.white.opacity(0.72))
-                Spacer(minLength: 0)
-                ZStack(alignment: .bottomTrailing) {
-                    Circle().fill(.white.opacity(0.9)).frame(width: 46, height: 46)
-                    KawaiiMascot(kind: .berryBunny, size: 34)
-                    Circle().fill(Color(hex: "FF8C38")).frame(width: 13, height: 13)
-                        .overlay(Image(systemName: "ellipsis").font(.system(size: 8, weight: .heavy)).foregroundStyle(.white))
-                }
-            }
-            HStack(spacing: 6) {
-                Circle().fill(.white.opacity(0.92)).frame(width: 5, height: 5)
-                Text("已记录 \(recordCount) 天，今天也要轻盈一点")
-                    .roundedFont(11, weight: .medium)
-                    .foregroundStyle(.white.opacity(0.86))
-                Spacer()
-            }
-        }
-        .foregroundStyle(.white)
-        .padding(.top, 15)
-        .padding(.bottom, 4)
-    }
-}
-
-private struct HomeWeightCard: View {
+private struct HomePlanCard: View {
     @ObservedObject var state: AppState
     let onRecord: () -> Void
     let onEditGoal: () -> Void
 
     var body: some View {
-        let gap = state.weightGap
         VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Text("21天前")
-                    .roundedFont(13, weight: .medium)
-                    .foregroundStyle(.white.opacity(0.76))
+            HStack(alignment: .center, spacing: 8) {
+                Text("体重管理方案")
+                    .roundedFont(23, weight: .heavy)
+                    .foregroundStyle(Color(hex: "303846"))
+                Image(systemName: "eye.fill")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(Color(hex: "21B981"))
                 Spacer()
-                Text("今日体重")
-                    .roundedFont(13, weight: .bold)
-                    .foregroundStyle(.white.opacity(0.92))
+                Text("第")
+                    .roundedFont(15, weight: .medium)
+                    .foregroundStyle(Color(hex: "9CA4AE"))
+                Text("\(currentWeek)/39")
+                    .roundedFont(16, weight: .heavy)
+                    .foregroundStyle(Color(hex: "3A4A58"))
+                    .padding(.horizontal, 12)
+                    .frame(height: 34)
+                    .background(Color(hex: "DDF6EC"), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+                Text("周")
+                    .roundedFont(15, weight: .medium)
+                    .foregroundStyle(Color(hex: "9CA4AE"))
             }
 
-            HStack(alignment: .bottom, spacing: 5) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("距离目标")
-                        .roundedFont(11, weight: .medium)
-                        .foregroundStyle(.white.opacity(0.72))
-                    Text(gap >= 0 ? "+\(String(format: "%.1f", gap))" : "-\(String(format: "%.1f", abs(gap)))")
-                        .roundedFont(26, weight: .heavy)
-                        .foregroundStyle(gap > 0 ? Color(hex: "FFE2E8") : .white)
-                    Text("kg")
-                        .roundedFont(10, weight: .bold)
-                        .foregroundStyle(.white.opacity(0.72))
-                }
-                Spacer(minLength: 8)
-                HStack(alignment: .lastTextBaseline, spacing: 5) {
-                    Text(String(format: "%.1f", state.weight))
-                        .roundedFont(62, weight: .heavy)
-                        .foregroundStyle(.white)
-                    Text("kg")
-                        .roundedFont(14, weight: .bold)
-                        .foregroundStyle(.white.opacity(0.78))
-                }
-                Spacer(minLength: 8)
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text("目标")
-                        .roundedFont(11, weight: .medium)
-                        .foregroundStyle(.white.opacity(0.72))
-                    Button(action: onEditGoal) {
-                        Text(String(format: "%.1f", state.goalWeight))
-                            .roundedFont(24, weight: .heavy)
-                            .foregroundStyle(.white)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("编辑目标体重")
-                    Text("kg · 点击编辑")
-                        .roundedFont(9, weight: .medium)
-                        .foregroundStyle(.white.opacity(0.72))
+            ZStack {
+                HomePlanGauge(progress: state.goalProgress)
+                    .frame(width: 206, height: 112)
+                    .padding(.top, 11)
+                VStack(spacing: 2) {
+                    Text(String(format: "%.1f", max(0, state.startWeight - state.weight)))
+                        .roundedFont(34, weight: .heavy)
+                        .foregroundStyle(Color(hex: "313B4A"))
+                    Text("已减（kg）")
+                        .roundedFont(14, weight: .medium)
+                        .foregroundStyle(Color(hex: "748090"))
                 }
             }
-            .padding(.top, 17)
 
-            Rectangle()
-                .fill(.white.opacity(0.35))
-                .frame(height: 1)
-                .padding(.top, 12)
-
-            HStack(spacing: 5) {
-                Image(systemName: gap > 0 ? "figure.walk" : "sparkles")
-                    .font(.system(size: 12, weight: .bold))
-                Text(gap > 0 ? "慢慢来，距离目标还差一点点" : "太棒啦，已经达到目标体重")
-                    .roundedFont(12, weight: .bold)
-            }
-            .foregroundStyle(.white.opacity(0.9))
-            .padding(.top, 14)
-
-            Button(action: onRecord) {
-                HStack(spacing: 7) {
-                    Image(systemName: "plus.circle.fill")
-                    Text("记录今天的体重")
-                        .roundedFont(13, weight: .heavy)
-                }
-                .foregroundStyle(Color(hex: "0B9DDD"))
-                .frame(maxWidth: .infinity)
-                .frame(height: 45)
-                .background(.white, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
-            }
-            .buttonStyle(.plain)
-            .padding(.top, 16)
-        }
-        .padding(20)
-        .background(LinearGradient(colors: [Color(hex: "16AEE8"), Color(hex: "52BFEF")], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 23, style: .continuous))
-        .shadow(color: Color(hex: "087EAE").opacity(0.22), radius: 18, y: 9)
-    }
-}
-
-private struct HomeTrendPreview: View {
-    @ObservedObject var state: AppState
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .center) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("查看趋势")
-                        .roundedFont(17, weight: .heavy)
-                        .foregroundStyle(Color(hex: "2D5268"))
-                    Text("每一次记录，都会留下变化")
-                        .roundedFont(10, weight: .medium)
-                        .foregroundStyle(Color(hex: "8AA5B3"))
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(Color(hex: "65BCE4"))
-            }
-            TrendChart(records: state.records, goal: state.goalWeight)
-                .frame(height: 94)
-                .padding(.top, 9)
-        }
-        .padding(.horizontal, 17)
-        .padding(.vertical, 15)
-        .background(.white, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .shadow(color: Color(hex: "93B8C9").opacity(0.14), radius: 14, y: 7)
-    }
-}
-
-private struct TodayRecordSection: View {
-    @ObservedObject var state: AppState
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 11) {
             HStack(alignment: .lastTextBaseline) {
-                Text(todayTitle)
-                    .roundedFont(18, weight: .heavy)
-                    .foregroundStyle(Color(hex: "3D4D57"))
-                Spacer()
-                Text("最近记录 \(state.records.count) 条")
-                    .roundedFont(10, weight: .medium)
-                    .foregroundStyle(Color(hex: "9DA9B0"))
-            }
-            if let record = state.records.first {
-                HStack(spacing: 14) {
-                    ZStack {
-                        Circle().fill(Color(hex: "DDF3FD"))
-                        Image(systemName: "scalemass.fill")
-                            .font(.system(size: 17, weight: .bold))
-                            .foregroundStyle(Color(hex: "28AEE7"))
-                    }
-                    .frame(width: 44, height: 44)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("体重")
+                HomePlanMetric(title: "初始", value: state.startWeight, alignment: .leading)
+                Spacer(minLength: 8)
+                Button(action: onRecord) {
+                    VStack(spacing: 4) {
+                        Text("今日")
                             .roundedFont(11, weight: .medium)
-                            .foregroundStyle(Color(hex: "9AA6AD"))
-                        HStack(alignment: .lastTextBaseline, spacing: 4) {
-                            Text(String(format: "%.1f", record.weight))
-                                .roundedFont(28, weight: .heavy)
-                                .foregroundStyle(state.weightTone(record.weight))
+                            .foregroundStyle(Color(hex: "9CA4AE"))
+                        HStack(alignment: .lastTextBaseline, spacing: 3) {
+                            Text(String(format: "%.1f", state.weight))
+                                .roundedFont(25, weight: .heavy)
+                                .foregroundStyle(state.weightTone(state.weight))
                             Text("kg")
                                 .roundedFont(11, weight: .bold)
-                                .foregroundStyle(Color(hex: "9AA6AD"))
+                                .foregroundStyle(Color(hex: "9CA4AE"))
                         }
                     }
-                    Spacer()
-                    VStack(alignment: .trailing, spacing: 4) {
-                        Text(record.date, style: .time)
-                            .roundedFont(11, weight: .medium)
-                            .foregroundStyle(Color(hex: "8D9AA2"))
-                        Text(record.change >= 0 ? "+\(String(format: "%.1f", record.change))" : String(format: "%.1f", record.change))
-                            .roundedFont(12, weight: .heavy)
-                            .foregroundStyle(record.change > 0 ? Color(hex: "E87582") : Color(hex: "42AA9B"))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("记录今日体重")
+                Spacer(minLength: 8)
+                Button(action: onEditGoal) {
+                    HomePlanMetric(title: "目标", value: state.goalWeight, alignment: .trailing)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("编辑目标体重")
+            }
+            .padding(.horizontal, 3)
+            .padding(.top, 2)
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 17)
+        .padding(.bottom, 19)
+        .background(Color.white, in: RoundedRectangle(cornerRadius: 27, style: .continuous))
+        .shadow(color: Color(hex: "BFCAD0").opacity(0.22), radius: 17, y: 8)
+    }
+
+    private var currentWeek: Int {
+        max(1, min(39, Int(ceil(Double(max(1, state.records.count)) / 7.0))))
+    }
+}
+
+private struct HomePlanMetric: View {
+    let title: String
+    let value: Double
+    let alignment: HorizontalAlignment
+
+    var body: some View {
+        VStack(alignment: alignment, spacing: 3) {
+            Text(String(format: "%.1f", value))
+                .roundedFont(25, weight: .heavy)
+                .foregroundStyle(Color(hex: "313B4A"))
+            Text(title)
+                .roundedFont(14, weight: .medium)
+                .foregroundStyle(Color(hex: "748090"))
+        }
+    }
+}
+
+private struct HomePlanGauge: View {
+    let progress: Double
+
+    var body: some View {
+        ZStack {
+            HomePlanArc(progress: 1)
+                .stroke(Color(hex: "F0F3F5"), style: StrokeStyle(lineWidth: 14, lineCap: .round))
+            HomePlanArc(progress: min(1, max(0, progress)))
+                .stroke(
+                    LinearGradient(colors: [Color(hex: "B4EAD2"), Color(hex: "3ACB91")], startPoint: .leading, endPoint: .trailing),
+                    style: StrokeStyle(lineWidth: 14, lineCap: .round)
+                )
+        }
+    }
+}
+
+private struct HomePlanArc: Shape {
+    let progress: Double
+
+    func path(in rect: CGRect) -> Path {
+        let center = CGPoint(x: rect.midX, y: rect.height * 0.72)
+        let radiusX = rect.width / 2 - 8
+        let radiusY = rect.height * 0.54
+        var path = Path()
+        let steps = 48
+        for step in 0...steps {
+            let degrees = 160 + 220 * progress * Double(step) / Double(steps)
+            let radians = degrees * .pi / 180
+            let point = CGPoint(
+                x: center.x + radiusX * cos(radians),
+                y: center.y + radiusY * sin(radians)
+            )
+            if step == 0 {
+                path.move(to: point)
+            } else {
+                path.addLine(to: point)
+            }
+        }
+        return path
+    }
+}
+
+private struct HomeTrendAndHistory: View {
+    @ObservedObject var state: AppState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: 12) {
+                Text("查看\n趋势")
+                    .roundedFont(19, weight: .heavy)
+                    .foregroundStyle(Color(hex: "5BB9D5"))
+                    .lineSpacing(4)
+                Rectangle()
+                    .fill(Color(hex: "BDE4EE"))
+                    .frame(width: 2, height: 53)
+                TrendChart(records: state.records, goal: state.goalWeight)
+                    .frame(height: 82)
+            }
+            .padding(.top, 17)
+            .padding(.horizontal, 17)
+            .padding(.bottom, 16)
+
+            Rectangle()
+                .fill(Color(hex: "EDF0F2"))
+                .frame(height: 1)
+
+            HomeWeightHistory(state: state)
+                .padding(.horizontal, 17)
+                .padding(.top, 16)
+        }
+        .padding(.bottom, 19)
+        .background(Color.white, in: RoundedRectangle(cornerRadius: 27, style: .continuous))
+        .shadow(color: Color(hex: "BFCAD0").opacity(0.2), radius: 17, y: 8)
+    }
+}
+
+private struct HomeWeightHistory: View {
+    @ObservedObject var state: AppState
+
+    private var groups: [HomeDayGroup] {
+        let calendar = Calendar.current
+        let grouped = Dictionary(grouping: state.records) { calendar.startOfDay(for: $0.date) }
+        return grouped.keys.sorted(by: >).map { date in
+            HomeDayGroup(date: date, records: (grouped[date] ?? []).sorted { $0.date > $1.date })
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .lastTextBaseline) {
+                Text("体重记录")
+                    .roundedFont(18, weight: .heavy)
+                    .foregroundStyle(Color(hex: "4D5660"))
+                Spacer()
+                Text("共 \(state.records.count) 条")
+                    .roundedFont(11, weight: .medium)
+                    .foregroundStyle(Color(hex: "A2AAB0"))
+            }
+
+            if groups.isEmpty {
+                Text("记录体重后，这里会出现你的变化")
+                    .roundedFont(13, weight: .medium)
+                    .foregroundStyle(Color(hex: "A2AAB0"))
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 34)
+            } else {
+                ForEach(groups) { group in
+                    Text(dayTitle(group.date))
+                        .roundedFont(16, weight: .heavy)
+                        .foregroundStyle(Color(hex: "727A82"))
+                        .padding(.top, 18)
+                        .padding(.bottom, 8)
+
+                    ForEach(group.records) { record in
+                        HomeWeightRow(record: record, state: state)
+                        if record.id != group.records.last?.id {
+                            Rectangle()
+                                .fill(Color(hex: "F0F2F3"))
+                                .frame(height: 1)
+                                .padding(.leading, 53)
+                        }
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
-                .background(.white, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .shadow(color: Color(hex: "B2C1C9").opacity(0.15), radius: 12, y: 6)
             }
         }
     }
 
-    private var todayTitle: String {
+    private func dayTitle(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "M月d日 EEEE"
         formatter.locale = Locale(identifier: "zh_CN")
-        return formatter.string(from: .now)
+        return formatter.string(from: date)
+    }
+}
+
+private struct HomeDayGroup: Identifiable {
+    let date: Date
+    let records: [WeightRecord]
+    var id: Date { date }
+}
+
+private struct HomeWeightRow: View {
+    let record: WeightRecord
+    @ObservedObject var state: AppState
+
+    var body: some View {
+        HStack(spacing: 12) {
+            VStack(spacing: 3) {
+                Circle()
+                    .fill(Color(hex: "D9F0F8"))
+                    .frame(width: 36, height: 36)
+                    .overlay(
+                        Image(systemName: "scalemass.fill")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(Color(hex: "63B7D5"))
+                    )
+                Text(record.date, style: .time)
+                    .roundedFont(10, weight: .medium)
+                    .foregroundStyle(Color(hex: "A1A9AE"))
+            }
+            .frame(width: 42)
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(alignment: .lastTextBaseline, spacing: 4) {
+                    Text("体重")
+                        .roundedFont(12, weight: .medium)
+                        .foregroundStyle(Color(hex: "A1A9AE"))
+                    Text(String(format: "%.1f", record.weight))
+                        .roundedFont(29, weight: .heavy)
+                        .foregroundStyle(state.weightTone(record.weight))
+                    Text("kg")
+                        .roundedFont(12, weight: .bold)
+                        .foregroundStyle(Color(hex: "8C969E"))
+                }
+                Text(record.note.isEmpty ? "记录体重" : record.note)
+                    .roundedFont(10, weight: .medium)
+                    .foregroundStyle(Color(hex: "A1A9AE"))
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            Text(changeText)
+                .roundedFont(12, weight: .heavy)
+                .foregroundStyle(record.change > 0 ? Color(hex: "E47782") : Color(hex: "58A993"))
+        }
+        .padding(.vertical, 10)
+    }
+
+    private var changeText: String {
+        guard abs(record.change) >= 0.05 else { return "—" }
+        return String(format: "%+.1f", record.change)
     }
 }
 

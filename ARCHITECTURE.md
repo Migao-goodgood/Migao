@@ -60,7 +60,7 @@ The current repository keeps the original collaborator-facing SwiftUI presentati
 
 ## Current iOS presentation
 
-- `HomeView` in `ContentView.swift`: blue summary surface with current weight, editable goal weight, gap, a compact trend preview, and the latest weight record. It intentionally does not duplicate habit summaries or activity logs.
+- `HomeView` in `ContentView.swift`: a two-part weight workspace modeled on the supplied references. The upper plan card shows initial/current/goal weight and progress; the lower panel shows the trend line followed by date-grouped weight history. It intentionally does not duplicate habit summaries or activity logs.
 - `TrendView` in `ContentView.swift`: white trend workspace with date-period filters, weight/goal chart, stage analysis, weight history, and a separate body-measurement mode. Weight chart data comes from `AppState.records`; body-measurement data comes from `HealthStore`.
 - `HabitsView` in `ContentView.swift`: renders all seven habit rows with a record action. Meal, exercise, and water keep their existing detailed record flow; sleep, bowel movement, medication, and menstrual-cycle notes use `HabitRecordModal` and `HealthStore.recordHabit(_:,on:note:)`.
 - `BottomNav` in `ContentView.swift`: persistent navigation for home, trend, habits, profile, plus the central weigh action that opens the existing weight-record modal.
