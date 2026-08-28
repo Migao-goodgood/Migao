@@ -11,6 +11,7 @@ struct ContentView: View {
     @EnvironmentObject private var state: AppState
     @EnvironmentObject private var health: HealthStore
     @EnvironmentObject private var healthSync: HealthSyncCoordinator
+    @EnvironmentObject private var bodyTrend: BodyTrendStore
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var tab: AppTab = .home
     @State private var recordType: RecordType?
@@ -26,7 +27,7 @@ struct ContentView: View {
                 case .home:
                     HomeView(state: state, onRecord: present, onEditGoal: presentGoalEditor, onShowTrend: showTrend)
                 case .trend:
-                    TrendView(state: state, health: health, onRecord: present)
+                    BodyTrendView(state: state, store: bodyTrend)
                 case .habits:
                     HabitsView(health: health, onRecord: present)
                 case .mine:

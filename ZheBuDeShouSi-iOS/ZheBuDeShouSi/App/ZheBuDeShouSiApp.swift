@@ -5,6 +5,7 @@ struct ZheBuDeShouSiApp: App {
     @StateObject private var appState = AppState()
     @StateObject private var healthStore = HealthStore()
     @StateObject private var healthSync = HealthSyncCoordinator()
+    @StateObject private var bodyTrendStore = BodyTrendStore()
 
     var body: some Scene {
         WindowGroup {
@@ -12,6 +13,7 @@ struct ZheBuDeShouSiApp: App {
                 .environmentObject(appState)
                 .environmentObject(healthStore)
                 .environmentObject(healthSync)
+                .environmentObject(bodyTrendStore)
         }
         #if os(macOS)
         .windowResizability(.contentSize)

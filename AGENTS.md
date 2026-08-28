@@ -10,6 +10,11 @@ All contributors, including Codex and human collaborators, must read this file a
 4. Keep UI, state transitions, persistence, and domain models separate.
 5. Build or run focused checks before proposing a commit.
 6. Update `ARCHITECTURE.md` whenever file responsibilities or data flow change.
+7. Before uploading or pushing to GitHub, run the unified validation set: a
+   macOS Debug build, iOS device and simulator Swift type checks (and a full
+   iOS build when simulator runtimes are available), plus the relevant
+   WeChat mini-program check when that client changed. Record any environment
+   limitation instead of describing a blocked build as successful.
 
 ## Architecture principles
 
@@ -29,6 +34,8 @@ All contributors, including Codex and human collaborators, must read this file a
 
 - Local edits and Xcode builds do not automatically upload to GitHub.
 - Do not push or merge to `main` without explicit user confirmation.
+- A GitHub upload must happen only after the unified validation in the required
+  workflow has completed or its environment limitation is explicitly recorded.
 - A GitHub push or merge does not publish an App Store release.
 - App Store, TestFlight, or Xcode Cloud releases require a separate, explicit release action.
 
