@@ -154,6 +154,7 @@ final class AppState: ObservableObject {
     @Published var water: Int = 1200
     @Published var records: [WeightRecord] = []
     @Published var logs: [ActivityLog] = []
+    @Published private(set) var avatarData: Data?
 
     private let storageKey = "zhebudeshousi.appState"
 
@@ -245,6 +246,11 @@ final class AppState: ObservableObject {
         save()
     }
 
+    func updateAvatar(_ data: Data?) {
+        avatarData = data
+        save()
+    }
+
     private func timeLabel() -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm"
@@ -257,10 +263,11 @@ final class AppState: ObservableObject {
         var water: Int
         var records: [WeightRecord]
         var logs: [ActivityLog]
+        var avatarData: Data?
     }
 
     private func save() {
-        let snapshot = Snapshot(weight: weight, goalWeight: goalWeight, water: water, records: records, logs: logs)
+        let snapshot = Snapshot(weight: weight, goalWeight: goalWeight, water: water, records: records, logs: logs, avatarData: avatarData)
         guard let data = try? JSONEncoder().encode(snapshot) else { return }
         UserDefaults.standard.set(data, forKey: storageKey)
     }
@@ -273,19 +280,31 @@ final class AppState: ObservableObject {
         water = snapshot.water
         records = snapshot.records
         logs = snapshot.logs
+        avatarData = snapshot.avatarData
     }
 }
 
 extension Color {
-    static let pagePink = Color(hex: "FFF6F9")
-    static let panelPink = Color(hex: "FFE0EA")
-    static let strawberry = Color(hex: "EF6F9F")
-    static let softPink = Color(hex: "F6D7E4")
-    static let warmText = Color(hex: "604756")
-    static let mutedText = Color(hex: "A58B98")
+    static let pagePink = Color(hex: "FFF8FA")
+    static let panelPink = Color(hex: "FFE7EF")
+    static let strawberry = Color(hex: "3C3040")
+    static let softPink = Color(hex: "FFD1DE")
+    static let warmText = Color(hex: "3C3040")
+    static let mutedText = Color(hex: "9B8490")
     static let mintGreen = Color(hex: "67AF97")
-    static let mintPale = Color(hex: "DCF3F0")
-    static let lavenderPale = Color(hex: "E8E0FA")
+    static let mintPale = Color(hex: "E4F8F2")
+    static let lavenderPale = Color(hex: "F0EBFF")
+    static let ink = Color(hex: "332C38")
+    static let inkSoft = Color(hex: "5D4F61")
+    static let platinum = Color(hex: "D8CBD2")
+    static let platinumDeep = Color(hex: "9A8290")
+    static let platinumLight = Color(hex: "F6E9EE")
+    static let platinumPale = Color(hex: "FFF8FA")
+    static let waterAccent = Color(hex: "63B7D0")
+    static let waterAccentPale = Color(hex: "E3F6FA")
+    static let jellyPink = Color(hex: "F58DAE")
+    static let jellyBlue = Color(hex: "70C8DA")
+    static let jellyMint = Color(hex: "7FD1B7")
 
     init(hex: String) {
         let value = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
@@ -304,10 +323,10 @@ extension View {
             .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).stroke(Color.white.opacity(0.95), lineWidth: 2))
-            .shadow(color: Color(hex: "EFCFDC").opacity(0.65), radius: 0, x: 0, y: 7)
+            .shadow(color: Color.platinum.opacity(0.52), radius: 0, x: 0, y: 7)
     }
 
     func roundedFont(_ size: CGFloat, weight: Font.Weight = .regular) -> some View {
-        self.font(.system(size: size, weight: weight, design: .rounded))
+        self.font(.system(size: size, weight: weight, design: .default))
     }
 }
