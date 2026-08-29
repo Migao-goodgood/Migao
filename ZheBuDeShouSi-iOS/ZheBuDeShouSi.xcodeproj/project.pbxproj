@@ -15,6 +15,12 @@
 		A10000000000000000000006 /* Features/HealthKit/Infrastructure/HealthKitClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000006 /* Features/HealthKit/Infrastructure/HealthKitClient.swift */; };
 		A10000000000000000000007 /* Features/HealthKit/Application/HealthSyncCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000007 /* Features/HealthKit/Application/HealthSyncCoordinator.swift */; };
 		A10000000000000000000008 /* Features/HealthKit/Infrastructure/HealthKitMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000009 /* Features/HealthKit/Infrastructure/HealthKitMapper.swift */; };
+		A10000000000000000000010 /* Features/BodyTrend/Domain/BodyTrendModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000010 /* Features/BodyTrend/Domain/BodyTrendModels.swift */; };
+		A10000000000000000000011 /* Features/BodyTrend/Application/BodyTrendStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000011 /* Features/BodyTrend/Application/BodyTrendStore.swift */; };
+		A10000000000000000000012 /* Features/BodyTrend/Infrastructure/InBodyOCRService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000012 /* Features/BodyTrend/Infrastructure/InBodyOCRService.swift */; };
+		A10000000000000000000013 /* Features/BodyTrend/UI/BodyTrendView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000013 /* Features/BodyTrend/UI/BodyTrendView.swift */; };
+		A10000000000000000000014 /* Features/BodyTrend/Infrastructure/InBodyDocumentScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000014 /* Features/BodyTrend/Infrastructure/InBodyDocumentScanner.swift */; };
+		A10000000000000000000015 /* Features/BodyTrend/UI/BodyAvatarSceneRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000015 /* Features/BodyTrend/UI/BodyAvatarSceneRenderer.swift */; };
 		C6882D30302F0C4C00139FA1 /* Resources/Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C6882D2F302F0C4C00139FA1 /* Resources/Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -33,6 +39,12 @@
 		C6882D2F302F0C4C00139FA1 /* Resources/Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		C70000000000000000000001 /* Distribution/ExportOptions-mac-app-store.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = ExportOptions-mac-app-store.plist; sourceTree = "<group>"; };
 		C70000000000000000000002 /* TestFlight/WhatToTest.zh-Hans.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = WhatToTest.zh-Hans.txt; sourceTree = "<group>"; };
+		B10000000000000000000010 /* Features/BodyTrend/Domain/BodyTrendModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodyTrendModels.swift; sourceTree = "<group>"; };
+		B10000000000000000000011 /* Features/BodyTrend/Application/BodyTrendStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodyTrendStore.swift; sourceTree = "<group>"; };
+		B10000000000000000000012 /* Features/BodyTrend/Infrastructure/InBodyOCRService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InBodyOCRService.swift; sourceTree = "<group>"; };
+		B10000000000000000000013 /* Features/BodyTrend/UI/BodyTrendView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodyTrendView.swift; sourceTree = "<group>"; };
+		B10000000000000000000014 /* Features/BodyTrend/Infrastructure/InBodyDocumentScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InBodyDocumentScanner.swift; sourceTree = "<group>"; };
+		B10000000000000000000015 /* Features/BodyTrend/UI/BodyAvatarSceneRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodyAvatarSceneRenderer.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -98,6 +110,7 @@
 			children = (
 				D10000000000000000000007 /* Health */,
 				D1000000000000000000000A /* HealthKit */,
+				D10000000000000000000011 /* BodyTrend */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -151,6 +164,51 @@
 				B10000000000000000000009 /* HealthKitMapper.swift */,
 			);
 			path = Infrastructure;
+			 sourceTree = "<group>";
+		};
+		D10000000000000000000011 /* BodyTrend */ = {
+			isa = PBXGroup;
+			children = (
+				D10000000000000000000012 /* Application */,
+				D10000000000000000000013 /* Domain */,
+				D10000000000000000000014 /* Infrastructure */,
+				D10000000000000000000015 /* UI */,
+			);
+			path = BodyTrend;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000012 /* Application */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000011 /* BodyTrendStore.swift */,
+			);
+			path = Application;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000013 /* Domain */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000010 /* BodyTrendModels.swift */,
+			);
+			path = Domain;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000014 /* Infrastructure */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000012 /* InBodyOCRService.swift */,
+				B10000000000000000000014 /* InBodyDocumentScanner.swift */,
+			);
+			path = Infrastructure;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000015 /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000013 /* BodyTrendView.swift */,
+				B10000000000000000000015 /* BodyAvatarSceneRenderer.swift */,
+			);
+			path = UI;
 			sourceTree = "<group>";
 		};
 		D1000000000000000000000D /* Shared */ = {
@@ -276,6 +334,12 @@
 				A10000000000000000000006 /* Features/HealthKit/Infrastructure/HealthKitClient.swift in Sources */,
 				A10000000000000000000007 /* Features/HealthKit/Application/HealthSyncCoordinator.swift in Sources */,
 				A10000000000000000000008 /* Features/HealthKit/Infrastructure/HealthKitMapper.swift in Sources */,
+				A10000000000000000000010 /* Features/BodyTrend/Domain/BodyTrendModels.swift in Sources */,
+				A10000000000000000000011 /* Features/BodyTrend/Application/BodyTrendStore.swift in Sources */,
+				A10000000000000000000012 /* Features/BodyTrend/Infrastructure/InBodyOCRService.swift in Sources */,
+				A10000000000000000000013 /* Features/BodyTrend/UI/BodyTrendView.swift in Sources */,
+				A10000000000000000000014 /* Features/BodyTrend/Infrastructure/InBodyDocumentScanner.swift in Sources */,
+				A10000000000000000000015 /* Features/BodyTrend/UI/BodyAvatarSceneRenderer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -305,6 +369,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "用于读取您授权的体重、身体质量指数和活动数据，以展示健康变化趋势并提供体重管理分析。";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "用于将您在“这不得瘦死”中记录的体重、身体质量指数等健康数据同步到“健康”App，便于统一查看和管理。";
+				INFOPLIST_KEY_NSCameraUsageDescription = "用于拍摄并识别 InBody 报告照片。";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -481,6 +546,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "用于读取您授权的体重、身体质量指数和活动数据，以展示健康变化趋势并提供体重管理分析。";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "用于将您在“这不得瘦死”中记录的体重、身体质量指数等健康数据同步到“健康”App，便于统一查看和管理。";
+				INFOPLIST_KEY_NSCameraUsageDescription = "用于拍摄并识别 InBody 报告照片。";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
