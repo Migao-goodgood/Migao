@@ -1,7 +1,8 @@
 import Foundation
 
 /// The visual subject used by the body-trend preview.
-enum AvatarStyle: String, Codable, CaseIterable, Identifiable {
+enum AvatarStyle: String, Codable, CaseIterable, Identifiable, Hashable {
+    case helloKitty
     case human
     case cat
     case dog
@@ -11,6 +12,7 @@ enum AvatarStyle: String, Codable, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
+        case .helloKitty: return "Hello Kitty"
         case .human: return "人物"
         case .cat: return "小猫"
         case .dog: return "小狗"
@@ -20,6 +22,7 @@ enum AvatarStyle: String, Codable, CaseIterable, Identifiable {
 
     var symbolName: String {
         switch self {
+        case .helloKitty: return "sparkles"
         case .human: return "figure.stand"
         case .cat: return "cat.fill"
         case .dog: return "dog.fill"

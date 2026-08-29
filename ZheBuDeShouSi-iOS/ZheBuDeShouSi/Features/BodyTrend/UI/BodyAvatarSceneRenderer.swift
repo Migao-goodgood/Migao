@@ -61,10 +61,10 @@ enum BodyAvatarSceneRenderer {
         imageData: Data?
     ) -> SCNScene {
         let scene = SCNScene()
-        scene.background.contents = color("F7F2FC")
-        scene.lightingEnvironment.contents = color("F9F4FF")
-        scene.lightingEnvironment.intensity = 0.36
-        scene.fogColor = color("F7F2FC")
+        scene.background.contents = color("FFF7FB")
+        scene.lightingEnvironment.contents = color("FFF9FC")
+        scene.lightingEnvironment.intensity = 0.42
+        scene.fogColor = color("FFF7FB")
         scene.fogStartDistance = 9
         scene.fogEndDistance = 20
 
@@ -75,6 +75,8 @@ enum BodyAvatarSceneRenderer {
 
         let avatarRoot = SCNNode()
         switch style {
+        case .helloKitty:
+            addHelloKitty(to: avatarRoot, width: width, depth: depth, height: height, mood: snapshot?.mood)
         case .human:
             addHuman(to: avatarRoot, width: width, depth: depth, height: height, mood: snapshot?.mood)
         case .cat:
@@ -89,15 +91,22 @@ enum BodyAvatarSceneRenderer {
             }
         }
 
-        // The small lift keeps shoes and paws visibly above the plinth.
-        avatarRoot.position = SCNVector3(0, 0.055, 0)
-        setYRotation(on: avatarRoot, value: -0.10)
+        // Kitty uses a clean, front-facing composition so the ears, bow, and
+        // feet remain visible at once. Other legacy avatars keep their gentle
+        // angled presentation.
+        avatarRoot.position = SCNVector3(0, style == .helloKitty ? 0.015 : 0.055, 0)
+        setYRotation(on: avatarRoot, value: style == .helloKitty ? 0 : -0.10)
         scene.rootNode.addChildNode(avatarRoot)
 
-        addBackdrop(to: scene, mood: snapshot?.mood)
-        addStage(to: scene, mood: snapshot?.mood)
-        addCamera(to: scene)
-        addLights(to: scene, mood: snapshot?.mood)
+        if style == .helloKitty {
+            addKittyBackdrop(to: scene)
+            addKittyGround(to: scene)
+        } else {
+            addBackdrop(to: scene, mood: snapshot?.mood)
+            addStage(to: scene, mood: snapshot?.mood)
+        }
+        addCamera(to: scene, fullBody: style == .helloKitty)
+        addLights(to: scene, mood: snapshot?.mood, kitty: style == .helloKitty)
 
         let bob = SCNAction.sequence([
             SCNAction.moveBy(x: 0, y: 0.014, z: 0, duration: 2.4),
@@ -140,6 +149,39 @@ enum BodyAvatarSceneRenderer {
                       material: tabMaterial, rotation: 0.16)
     }
 
+    /// The Kitty composition intentionally has no paper tabs, halo, or front
+    /// decoration. A quiet wall keeps the silhouette readable and leaves the
+    /// complete character unobstructed.
+    private static func addKittyBackdrop(to scene: SCNScene) {
+        let wall = roundedBox(width: 5.6, height: 4.7, depth: 0.06, radius: 0.18,
+                              material: material(color("FFFDFE"), roughness: 0.96, metalness: 0, clearCoat: 0))
+        let wallNode = SCNNode(geometry: wall)
+        wallNode.position = SCNVector3(0, 1.55, -1.85)
+        scene.rootNode.addChildNode(wallNode)
+    }
+
+    /// A soft contact shadow grounds Kitty without a plinth crossing in front
+    /// of the feet. The shadow is depth-disabled so it can never occlude the
+    /// avatar while the user rotates the SceneView.
+    private static func addKittyGround(to scene: SCNScene) {
+        let floor = SCNFloor()
+        floor.reflectivity = 0.04
+        floor.firstMaterial = material(color("FFF4F8"), roughness: 0.98, metalness: 0, clearCoat: 0)
+        let floorNode = SCNNode(geometry: floor)
+        floorNode.position.y = -0.07
+        scene.rootNode.addChildNode(floorNode)
+
+        let shadow = SCNSphere(radius: 1)
+        shadow.segmentCount = 64
+        shadow.firstMaterial = material(color("D99AB0", alpha: 0.16), roughness: 1, metalness: 0, clearCoat: 0)
+        shadow.firstMaterial?.writesToDepthBuffer = false
+        shadow.firstMaterial?.readsFromDepthBuffer = false
+        let shadowNode = SCNNode(geometry: shadow)
+        shadowNode.scale = SCNVector3(0.72, 0.018, 0.28)
+        shadowNode.position = SCNVector3(0, -0.052, 0.08)
+        scene.rootNode.addChildNode(shadowNode)
+    }
+
     private static func addStage(to scene: SCNScene, mood: MoodLevel?) {
         let floor = SCNFloor()
         floor.reflectivity = 0.10
@@ -172,28 +214,28 @@ enum BodyAvatarSceneRenderer {
         scene.rootNode.addChildNode(rimNode)
     }
 
-    private static func addCamera(to scene: SCNScene) {
+    private static func addCamera(to scene: SCNScene, fullBody: Bool = false) {
         let target = SCNNode()
-        target.position = SCNVector3(0, 1.03, 0)
+        target.position = SCNVector3(0, fullBody ? 1.23 : 1.03, 0)
         scene.rootNode.addChildNode(target)
 
         let camera = SCNCamera()
-        camera.fieldOfView = 34
+        camera.fieldOfView = fullBody ? 28 : 34
         camera.zNear = 0.05
         camera.zFar = 50
         camera.automaticallyAdjustsZRange = true
         camera.wantsHDR = true
         let cameraNode = SCNNode()
         cameraNode.camera = camera
-        cameraNode.position = SCNVector3(0, 1.13, 4.85)
+        cameraNode.position = SCNVector3(0, fullBody ? 1.25 : 1.13, fullBody ? 5.55 : 4.85)
         cameraNode.constraints = [SCNLookAtConstraint(target: target)]
         scene.rootNode.addChildNode(cameraNode)
     }
 
-    private static func addLights(to scene: SCNScene, mood: MoodLevel?) {
+    private static func addLights(to scene: SCNScene, mood: MoodLevel?, kitty: Bool = false) {
         let key = SCNLight()
         key.type = .area
-        key.intensity = 680
+        key.intensity = kitty ? 820 : 680
         key.color = color("FFFDFB")
         key.castsShadow = true
         key.shadowRadius = 10
@@ -210,8 +252,8 @@ enum BodyAvatarSceneRenderer {
 
         let fill = SCNLight()
         fill.type = .area
-        fill.intensity = 330
-        fill.color = color("EAE2FF")
+        fill.intensity = kitty ? 430 : 330
+        fill.color = kitty ? color("FFEAF2") : color("EAE2FF")
         let fillNode = SCNNode()
         fillNode.light = fill
         fillNode.position = SCNVector3(-2.4, 2.0, 2.5)
@@ -219,8 +261,8 @@ enum BodyAvatarSceneRenderer {
 
         let rim = SCNLight()
         rim.type = .omni
-        rim.intensity = 300
-        rim.color = ribbonColor(mood)
+        rim.intensity = kitty ? 220 : 300
+        rim.color = kitty ? color("F7B5C8") : ribbonColor(mood)
         let rimNode = SCNNode()
         rimNode.light = rim
         rimNode.position = SCNVector3(0.8, 2.7, -2.4)
@@ -233,6 +275,141 @@ enum BodyAvatarSceneRenderer {
         let ambientNode = SCNNode()
         ambientNode.light = ambient
         scene.rootNode.addChildNode(ambientNode)
+    }
+
+    // MARK: - Hello Kitty character
+
+    /// A small, original SceneKit interpretation of Hello Kitty's visual
+    /// signature: white rounded head and body, red bow and dress, yellow nose,
+    /// oval eyes, and whiskers. It is built as one centered full-body subject
+    /// so body-trend changes can still scale the silhouette without cropping
+    /// the ears or feet.
+    private static func addHelloKitty(to root: SCNNode, width: Float, depth: Float,
+                                      height: Float, mood: MoodLevel?) {
+        let w = CGFloat(width)
+        let d = CGFloat(depth)
+        let h = CGFloat(height)
+        let white = material(color("FFFDFB"), roughness: 0.48, metalness: 0, clearCoat: 0.22)
+        let whiteShadow = material(color("F3EAF0"), roughness: 0.64, metalness: 0, clearCoat: 0.10)
+        let red = material(color("EF5C78"), roughness: 0.42, metalness: 0.01, clearCoat: 0.20)
+        let redDeep = material(color("C83E61"), roughness: 0.48, metalness: 0.01, clearCoat: 0.16)
+        let pink = material(color("F6B4C8"), roughness: 0.58, metalness: 0, clearCoat: 0.10)
+        let black = material(color("2D2630"), roughness: 0.35, metalness: 0, clearCoat: 0.20)
+        let yellow = material(color("F6C85F"), roughness: 0.40, metalness: 0.01, clearCoat: 0.18)
+
+        // Feet and legs are separated just enough to read as a complete body.
+        for side: Float in [-1, 1] {
+            addRoundedBox(to: root, width: 0.22 * w, height: 0.38 * h, depth: 0.22 * d,
+                          radius: 0.10, position: SCNVector3(side * 0.18 * width, 0.17, 0.01), material: white)
+            addRoundedBox(to: root, width: 0.34 * w, height: 0.15, depth: 0.34 * d,
+                          radius: 0.07, position: SCNVector3(side * 0.19 * width, 0.015, 0.10 * depth), material: red)
+        }
+
+        // Rounded body plus a single tapered dress keeps the silhouette soft,
+        // with no foreground prop crossing the legs.
+        let body = roundedBox(width: 0.82 * w, height: 0.82 * h, depth: 0.54 * d,
+                              radius: 0.24, material: white)
+        let bodyNode = SCNNode(geometry: body)
+        bodyNode.position = SCNVector3(0, 0.77, 0)
+        root.addChildNode(bodyNode)
+
+        let dress = extrudedShape(path: dressPath(width: 0.98 * w, height: 0.88 * h), depth: 0.56 * d,
+                                  material: red, chamfer: 0.055)
+        let dressNode = SCNNode(geometry: dress)
+        dressNode.position = SCNVector3(0, 0.69, -Float(0.28 * d))
+        root.addChildNode(dressNode)
+
+        // White bib and red straps add the familiar pinafore detail without
+        // covering the face or breaking the full-body read.
+        addRoundedBox(to: root, width: 0.48 * w, height: 0.38 * h, depth: 0.075,
+                      radius: 0.11, position: SCNVector3(0, 0.98, 0.30 * depth), material: white)
+        for side: Float in [-1, 1] {
+            addRoundedBox(to: root, width: 0.075 * w, height: 0.34 * h, depth: 0.08,
+                          radius: 0.035, position: SCNVector3(side * 0.22 * width, 1.06, 0.30 * depth), material: redDeep,
+                          rotation: side * 0.08)
+        }
+        let button = SCNSphere(radius: 0.045)
+        button.segmentCount = 24
+        button.firstMaterial = yellow
+        let buttonNode = SCNNode(geometry: button)
+        buttonNode.position = SCNVector3(0, 0.98, 0.35 * depth)
+        root.addChildNode(buttonNode)
+
+        // Arms stay outside the dress so the silhouette remains legible.
+        addLimb(to: root, position: SCNVector3(-0.48 * width, 0.88, 0.01), radius: 0.105,
+                length: 0.48 * height, material: white, rotation: -0.36)
+        addLimb(to: root, position: SCNVector3(0.48 * width, 0.88, 0.01), radius: 0.105,
+                length: 0.48 * height, material: white, rotation: 0.36)
+        addRoundedBox(to: root, width: 0.18 * w, height: 0.16, depth: 0.18 * d,
+                      radius: 0.075, position: SCNVector3(-0.57 * width, 0.67, 0.08), material: whiteShadow)
+        addRoundedBox(to: root, width: 0.18 * w, height: 0.16, depth: 0.18 * d,
+                      radius: 0.075, position: SCNVector3(0.57 * width, 0.67, 0.08), material: whiteShadow)
+
+        // Head and ears are intentionally larger than the body, but both ears
+        // remain inside the camera's full-body framing.
+        let head = roundedBox(width: 1.06 * w, height: 0.86 * h, depth: 0.66 * d,
+                              radius: 0.28, material: white)
+        let headNode = SCNNode(geometry: head)
+        headNode.position = SCNVector3(0, 1.84, 0.025)
+        root.addChildNode(headNode)
+        addCatEar(to: root, x: -0.43 * width, y: 2.22, z: -0.04,
+                  fur: white, inner: pink, rotation: -0.10)
+        addCatEar(to: root, x: 0.43 * width, y: 2.22, z: -0.04,
+                  fur: white, inner: pink, rotation: 0.10)
+
+        // Hello Kitty's bow sits beside the viewer-right ear in a front view.
+        addBow(to: root, position: SCNVector3(0.48 * width, 2.27, 0.34 * depth),
+               material: red, scale: 1.10)
+        addRoundedBox(to: root, width: 0.11, height: 0.11, depth: 0.085, radius: 0.045,
+                      position: SCNVector3(0.48 * width, 2.27, 0.405 * depth), material: redDeep)
+
+        addHelloKittyFace(to: root, width: width, depth: depth, eyes: black, nose: yellow,
+                          whiskers: black, mood: mood)
+    }
+
+    private static func addHelloKittyFace(to root: SCNNode, width: Float, depth: Float,
+                                          eyes: SCNMaterial, nose: SCNMaterial,
+                                          whiskers: SCNMaterial, mood: MoodLevel?) {
+        // The face uses simple high-contrast shapes rather than a mouth; the
+        // missing mouth is part of the character's recognizable expression.
+        for side: Float in [-1, 1] {
+            addRoundedBox(to: root, width: 0.105, height: 0.22, depth: 0.055,
+                          radius: 0.045, position: SCNVector3(side * 0.22 * width, 1.91, 0.385 * depth), material: eyes)
+        }
+        let noseGeometry = roundedBox(width: 0.13, height: 0.095, depth: 0.075,
+                                      radius: 0.04, material: nose)
+        let noseNode = SCNNode(geometry: noseGeometry)
+        noseNode.position = SCNVector3(0, 1.76, 0.41 * depth)
+        root.addChildNode(noseNode)
+
+        // Three delicate whiskers on each side. They sit on the face plane,
+        // never in front of the body, so camera rotation cannot make them read
+        // as an obstruction.
+        let sideSign: [Float] = [-1, 1]
+        for side in sideSign {
+            let outward: Float = side < 0 ? -1 : 1
+            let rows: [(Float, Float)] = [(1.86, 0.12), (1.76, 0.02), (1.66, -0.10)]
+            for (y, tilt) in rows {
+                let whisker = SCNCapsule(capRadius: 0.011, height: 0.28)
+                whisker.radialSegmentCount = 16
+                whisker.firstMaterial = whiskers
+                let node = SCNNode(geometry: whisker)
+                node.position = SCNVector3(side * 0.39 * width, y, 0.395 * depth)
+                setZRotation(on: node, value: outward * (Float.pi / 2 + tilt))
+                root.addChildNode(node)
+            }
+        }
+
+        // A tiny pink cheek wash responds to mood without adding facial text
+        // or covering the eyes.
+        if mood == .good || mood == .excellent {
+            let cheek = material(color("F39AB8", alpha: 0.42), roughness: 0.64, metalness: 0, clearCoat: 0.04)
+            for side: Float in [-1, 1] {
+                addRoundedBox(to: root, width: 0.13, height: 0.045, depth: 0.025,
+                              radius: 0.02, position: SCNVector3(side * 0.36 * width, 1.73, 0.405 * depth), material: cheek,
+                              rotation: side * 0.08)
+            }
+        }
     }
 
     // MARK: - Human character

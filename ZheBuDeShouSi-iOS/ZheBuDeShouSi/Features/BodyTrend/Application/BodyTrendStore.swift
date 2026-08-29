@@ -9,7 +9,7 @@ final class BodyTrendStore: ObservableObject {
     static let maxAvatarImageBytes = 16 * 1024 * 1024
 
     @Published private(set) var snapshots: [InBodySnapshot] = []
-    @Published private(set) var selectedAvatarStyle: AvatarStyle = .human
+    @Published private(set) var selectedAvatarStyle: AvatarStyle = .helloKitty
     @Published private(set) var avatarImageData: Data?
 
     private let defaults: UserDefaults
@@ -147,7 +147,7 @@ final class BodyTrendStore: ObservableObject {
 
     private func save() {
         let payload = PersistedSnapshot(
-            version: 1,
+            version: 2,
             snapshots: snapshots,
             avatarStyle: selectedAvatarStyle,
             avatarImageData: avatarImageData
@@ -163,7 +163,11 @@ final class BodyTrendStore: ObservableObject {
             if lhs.date == rhs.date { return lhs.id.uuidString > rhs.id.uuidString }
             return lhs.date > rhs.date
         }
-        selectedAvatarStyle = payload.avatarStyle ?? .human
+        // Existing version-1 builds used the generic human as the initial
+        // avatar. Migrate that default to Kitty once; an explicitly chosen
+        // human in a newer payload remains a valid legacy preference.
+        let storedStyle = payload.avatarStyle ?? .helloKitty
+        selectedAvatarStyle = payload.version < 2 && storedStyle == .human ? .helloKitty : storedStyle
         if let imageData = payload.avatarImageData,
            imageData.count <= Self.maxAvatarImageBytes {
             avatarImageData = imageData

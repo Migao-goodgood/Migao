@@ -157,7 +157,8 @@ struct BodyTrendView: View {
     }
 
     private func avatarStage(_ snapshot: InBodySnapshot, sceneHeight: CGFloat) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
+        let isCustomAvatar = store.selectedAvatarStyle == .custom
+        return VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(snapshot.date, format: .dateTime.year().month().day())
@@ -181,24 +182,39 @@ struct BodyTrendView: View {
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             .padding(.top, 18)
 
-            HStack(spacing: 0) {
-                ForEach(AvatarStyle.allCases) { style in
-                    avatarStyleButton(style)
-                }
+            HStack(spacing: 8) {
+                // Hello Kitty is the intentional focal point. The legacy
+                // character choices remain available from the compact menu so
+                // existing preferences and custom uploads are not discarded.
+                avatarStyleButton(.helloKitty)
 
                 PhotosPicker(selection: $avatarPhotoItem, matching: .images) {
-                    VStack(spacing: 4) {
-                        Image(systemName: "photo.badge.plus")
-                            .font(.system(size: 11, weight: .bold))
-                        Text("上传")
-                            .roundedFont(9, weight: .bold)
-                    }
-                    .foregroundStyle(BodyEditorial.sage)
-                    .frame(width: 42, height: 38)
+                    avatarOptionLabel(
+                        icon: "photo.badge.plus",
+                        title: isCustomAvatar ? "已上传" : "自定义",
+                        selected: isCustomAvatar,
+                        accent: BodyEditorial.sage
+                    )
                 }
                 .buttonStyle(.plain)
+                .frame(width: 58)
                 .accessibilityLabel("上传自定义形象")
+
+                Menu {
+                    ForEach([AvatarStyle.human, .cat, .dog], id: \.self) { style in
+                        Button {
+                            store.setAvatarStyle(style)
+                        } label: {
+                            Label(style.title, systemImage: style.symbolName)
+                        }
+                    }
+                } label: {
+                    avatarOptionLabel(icon: "ellipsis", title: "更多", selected: false, accent: BodyEditorial.blue)
+                }
+                .frame(width: 58)
+                .accessibilityLabel("更多形象")
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, 14)
             .overlay(alignment: .bottom) {
                 Rectangle().fill(BodyEditorial.rule).frame(height: 1)
@@ -239,6 +255,24 @@ struct BodyTrendView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("选择\(style.title)形象")
+    }
+
+    private func avatarOptionLabel(icon: String, title: String, selected: Bool, accent: Color) -> some View {
+        VStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 11, weight: .bold))
+            Text(title)
+                .roundedFont(9, weight: .bold)
+        }
+        .foregroundStyle(selected ? BodyEditorial.ink : accent)
+        .frame(maxWidth: .infinity)
+        .frame(height: 38)
+        .background(selected ? accent.opacity(0.18) : Color.clear)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(selected ? accent : Color.clear)
+                .frame(height: 2)
+        }
     }
 
     private var timeline: some View {
@@ -423,7 +457,9 @@ struct BodyTrendView: View {
     }
 
     private func populatedSceneHeight(for viewportHeight: CGFloat) -> CGFloat {
-        min(390, max(300, viewportHeight * 0.38))
+        // Kitty is shown from ears to feet; reserve a taller stage so the
+        // complete silhouette has breathing room on compact iPhone screens.
+        min(500, max(420, viewportHeight * 0.52))
     }
 
     private func emptyContentHeight(for viewportHeight: CGFloat) -> CGFloat {
@@ -431,7 +467,7 @@ struct BodyTrendView: View {
     }
 
     private func emptySceneHeight(for contentHeight: CGFloat) -> CGFloat {
-        min(560, max(420, contentHeight * 0.62))
+        min(620, max(480, contentHeight * 0.66))
     }
 
     private func openManualEntry() {
