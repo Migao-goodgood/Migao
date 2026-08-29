@@ -8,10 +8,12 @@ import SceneKit
 import UIKit
 private typealias BodyTrendPlatformColor = UIColor
 private typealias BodyTrendPlatformImage = UIImage
+private typealias BodyTrendPlatformPath = UIBezierPath
 #elseif os(macOS)
 import AppKit
 private typealias BodyTrendPlatformColor = NSColor
 private typealias BodyTrendPlatformImage = NSImage
+private typealias BodyTrendPlatformPath = NSBezierPath
 #endif
 
 struct BodyAvatarSceneInput: Equatable {
@@ -47,9 +49,10 @@ final class BodyAvatarSceneController: ObservableObject {
     }
 }
 
-/// Builds the small, stylized 3D preview used by the body-trend workspace.
-/// The geometry is a visual metaphor driven by measurements, not a scan or a
-/// medical reconstruction.
+/// SceneKit-only renderer for the body trend avatar. The avatar is an
+/// illustrative, parameterized character rather than a scan or a medical
+/// reconstruction. Keeping all geometry here leaves the SwiftUI view focused
+/// on presentation and keeps the trend domain independent from SceneKit.
 enum BodyAvatarSceneRenderer {
     static func makeScene(
         snapshot: InBodySnapshot?,
@@ -58,18 +61,17 @@ enum BodyAvatarSceneRenderer {
         imageData: Data?
     ) -> SCNScene {
         let scene = SCNScene()
-        // Soft candy palette keeps the 3D preview playful without becoming neon.
-        scene.background.contents = color("FBF5FA")
-        scene.lightingEnvironment.contents = color("F8EFF8")
-        scene.lightingEnvironment.intensity = 0.28
-        scene.fogColor = color("FBF5FA")
-        scene.fogStartDistance = 8
-        scene.fogEndDistance = 18
+        scene.background.contents = color("F7F2FC")
+        scene.lightingEnvironment.contents = color("F9F4FF")
+        scene.lightingEnvironment.intensity = 0.36
+        scene.fogColor = color("F7F2FC")
+        scene.fogStartDistance = 9
+        scene.fogEndDistance = 20
 
         let parameters = snapshot?.avatarParameters(relativeTo: previousSnapshot) ?? .neutral
-        let width = Float(clamp(parameters.waistScale, lower: 0.78, upper: 1.25))
-        let depth = Float(clamp(parameters.torsoScale, lower: 0.78, upper: 1.2))
-        let height = Float(clamp(parameters.limbScale, lower: 0.9, upper: 1.12))
+        let width = Float(clamp(parameters.waistScale, lower: 0.82, upper: 1.20))
+        let depth = Float(clamp(parameters.torsoScale, lower: 0.82, upper: 1.16))
+        let height = Float(clamp(parameters.limbScale, lower: 0.92, upper: 1.10))
 
         let avatarRoot = SCNNode()
         switch style {
@@ -86,438 +88,443 @@ enum BodyAvatarSceneRenderer {
                 addHuman(to: avatarRoot, width: width, depth: depth, height: height, mood: snapshot?.mood)
             }
         }
-        // Lift the character onto the display plinth so rounded feet do not
-        // visually sink into its top surface.
-        avatarRoot.position = SCNVector3(0, 0.05, 0)
-        setYRotation(on: avatarRoot, value: -0.12)
+
+        // The small lift keeps shoes and paws visibly above the plinth.
+        avatarRoot.position = SCNVector3(0, 0.055, 0)
+        setYRotation(on: avatarRoot, value: -0.10)
         scene.rootNode.addChildNode(avatarRoot)
 
         addBackdrop(to: scene, mood: snapshot?.mood)
-        addStage(to: scene)
+        addStage(to: scene, mood: snapshot?.mood)
         addCamera(to: scene)
-        addLights(to: scene)
+        addLights(to: scene, mood: snapshot?.mood)
 
         let bob = SCNAction.sequence([
-            SCNAction.moveBy(x: 0, y: 0.018, z: 0, duration: 2.2),
-            SCNAction.moveBy(x: 0, y: -0.018, z: 0, duration: 2.2)
+            SCNAction.moveBy(x: 0, y: 0.014, z: 0, duration: 2.4),
+            SCNAction.moveBy(x: 0, y: -0.014, z: 0, duration: 2.4)
         ])
         bob.timingMode = .easeInEaseOut
         avatarRoot.runAction(.repeatForever(bob), forKey: "gentle-bob")
         return scene
     }
 
+    // MARK: - Scene dressing
+
     private static func addBackdrop(to scene: SCNScene, mood: MoodLevel?) {
-        let panel = SCNPlane(width: 8, height: 6)
-        panel.firstMaterial = material(color("FBF5FA"), roughness: 0.98, metalness: 0, clearCoat: 0)
-        let panelNode = SCNNode(geometry: panel)
-        panelNode.position = SCNVector3(0, 1.55, -1.35)
-        scene.rootNode.addChildNode(panelNode)
+        let paper = roundedBox(width: 5.2, height: 3.75, depth: 0.08, radius: 0.34,
+                               material: material(color("FFFDFE"), roughness: 0.92, metalness: 0, clearCoat: 0))
+        let paperNode = SCNNode(geometry: paper)
+        paperNode.position = SCNVector3(0, 1.33, -1.68)
+        scene.rootNode.addChildNode(paperNode)
 
-        let glow = SCNPlane(width: 3.8, height: 3.55)
-        glow.firstMaterial = material(
-            ribbonColor(mood, alpha: 0.22),
-            roughness: 0.94,
-            metalness: 0,
-            clearCoat: 0,
-            emission: ribbonColor(mood, alpha: 0.04)
-        )
-        glow.firstMaterial?.transparency = 0.94
-        let glowNode = SCNNode(geometry: glow)
-        glowNode.position = SCNVector3(0, 1.45, -0.92)
-        scene.rootNode.addChildNode(glowNode)
+        // A quiet oval wash separates the character from the paper without
+        // introducing a busy illustration behind it.
+        let halo = SCNSphere(radius: 1)
+        halo.segmentCount = 64
+        halo.firstMaterial = material(ribbonColor(mood, alpha: 0.25), roughness: 0.98, metalness: 0, clearCoat: 0)
+        halo.firstMaterial?.transparency = 0.72
+        halo.firstMaterial?.writesToDepthBuffer = false
+        let haloNode = SCNNode(geometry: halo)
+        haloNode.scale = SCNVector3(1.53, 1.12, 0.035)
+        haloNode.position = SCNVector3(0, 1.34, -1.48)
+        scene.rootNode.addChildNode(haloNode)
 
-        addEditorialRibbon(to: scene, mood: mood)
+        // Two tiny paper tabs provide a designed frame while leaving generous
+        // negative space around the avatar.
+        let tabMaterial = material(color("FFFFFF", alpha: 0.80), roughness: 0.78, metalness: 0, clearCoat: 0.04)
+        addRoundedBox(to: scene.rootNode, width: 0.48, height: 0.09, depth: 0.025,
+                      radius: 0.035, position: SCNVector3(-1.76, 2.68, -1.57),
+                      material: tabMaterial, rotation: -0.12)
+        addRoundedBox(to: scene.rootNode, width: 0.36, height: 0.08, depth: 0.025,
+                      radius: 0.03, position: SCNVector3(1.77, 0.32, -1.57),
+                      material: tabMaterial, rotation: 0.16)
     }
 
-    private static func addEditorialRibbon(to scene: SCNScene, mood: MoodLevel?) {
-        #if os(iOS)
-        let path = UIBezierPath()
-        path.move(to: CGPoint(x: -1.20, y: -0.92))
-        path.addCurve(
-            to: CGPoint(x: 0.92, y: 0.78),
-            controlPoint1: CGPoint(x: -0.50, y: -0.66),
-            controlPoint2: CGPoint(x: 0.28, y: 0.56)
-        )
-        path.addCurve(
-            to: CGPoint(x: 0.82, y: 0.91),
-            controlPoint1: CGPoint(x: 0.90, y: 0.83),
-            controlPoint2: CGPoint(x: 0.86, y: 0.88)
-        )
-        path.addCurve(
-            to: CGPoint(x: -1.15, y: -0.82),
-            controlPoint1: CGPoint(x: 0.18, y: 0.65),
-            controlPoint2: CGPoint(x: -0.64, y: -0.48)
-        )
-        path.close()
-        #elseif os(macOS)
-        let path = NSBezierPath()
-        path.move(to: NSPoint(x: -1.20, y: -0.92))
-        path.curve(
-            to: NSPoint(x: 0.92, y: 0.78),
-            controlPoint1: NSPoint(x: -0.50, y: -0.66),
-            controlPoint2: NSPoint(x: 0.28, y: 0.56)
-        )
-        path.curve(
-            to: NSPoint(x: 0.82, y: 0.91),
-            controlPoint1: NSPoint(x: 0.90, y: 0.83),
-            controlPoint2: NSPoint(x: 0.86, y: 0.88)
-        )
-        path.curve(
-            to: NSPoint(x: -1.15, y: -0.82),
-            controlPoint1: NSPoint(x: 0.18, y: 0.65),
-            controlPoint2: NSPoint(x: -0.64, y: -0.48)
-        )
-        path.close()
-        #else
-        return
-        #endif
-
-        let ribbon = SCNShape(path: path, extrusionDepth: 0.012)
-        ribbon.chamferRadius = 0.004
-        ribbon.firstMaterial = material(
-            ribbonColor(mood, alpha: 0.26),
-            roughness: 0.82,
-            metalness: 0,
-            clearCoat: 0.04,
-            emission: ribbonColor(mood, alpha: 0.02)
-        )
-        let ribbonNode = SCNNode(geometry: ribbon)
-        ribbonNode.position = SCNVector3(-0.62, 1.18, -0.76)
-        setZRotation(on: ribbonNode, value: -0.08)
-        scene.rootNode.addChildNode(ribbonNode)
-    }
-
-    private static func ribbonColor(_ mood: MoodLevel?, alpha: CGFloat = 1) -> BodyTrendPlatformColor {
-        switch mood {
-        case .excellent, .good:
-            return color("9FD9C1", alpha: alpha)
-        case .neutral:
-            return color("C8B4E8", alpha: alpha)
-        case .low, .veryLow:
-            return color("F3A6B9", alpha: alpha)
-        case nil:
-            return color("C8B4E8", alpha: alpha)
-        }
-    }
-
-    private static func addStage(to scene: SCNScene) {
+    private static func addStage(to scene: SCNScene, mood: MoodLevel?) {
         let floor = SCNFloor()
-        floor.reflectivity = 0.14
-        floor.firstMaterial = material(color("F3EAF3"), roughness: 0.86, metalness: 0, clearCoat: 0.04)
+        floor.reflectivity = 0.10
+        floor.firstMaterial = material(color("F2ECF7"), roughness: 0.90, metalness: 0, clearCoat: 0)
         let floorNode = SCNNode(geometry: floor)
         floorNode.position.y = -0.31
-        floorNode.opacity = 0.92
+        floorNode.opacity = 0.94
         scene.rootNode.addChildNode(floorNode)
 
-        let platform = SCNCylinder(radius: 1.38, height: 0.085)
+        let platform = SCNCylinder(radius: 1.30, height: 0.10)
         platform.radialSegmentCount = 96
-        platform.firstMaterial = material(color("FFF9FD"), roughness: 0.56, metalness: 0.02, clearCoat: 0.16)
+        platform.firstMaterial = material(color("FFFFFF"), roughness: 0.50, metalness: 0.03, clearCoat: 0.20)
         let platformNode = SCNNode(geometry: platform)
-        platformNode.position.y = -0.27
+        platformNode.position.y = -0.255
         scene.rootNode.addChildNode(platformNode)
 
-        let inset = SCNCylinder(radius: 1.20, height: 0.018)
+        let inset = SCNCylinder(radius: 1.16, height: 0.022)
         inset.radialSegmentCount = 96
-        inset.firstMaterial = material(color("F0E8F6"), roughness: 0.62, metalness: 0.01, clearCoat: 0.08)
+        inset.firstMaterial = material(ribbonColor(mood, alpha: 0.42), roughness: 0.64, metalness: 0.01, clearCoat: 0.10)
         let insetNode = SCNNode(geometry: inset)
-        insetNode.position.y = -0.215
+        insetNode.position.y = -0.195
         scene.rootNode.addChildNode(insetNode)
 
-        let ring = SCNTorus(ringRadius: 1.12, pipeRadius: 0.022)
-        ring.ringSegmentCount = 96
-        ring.pipeSegmentCount = 16
-        ring.firstMaterial = material(
-            color("D2A9DF"),
-            roughness: 0.42,
-            metalness: 0.06,
-            clearCoat: 0.18,
-            emission: color("EBD4F0", alpha: 0.06)
-        )
-        let ringNode = SCNNode(geometry: ring)
-        ringNode.position.y = -0.195
-        scene.rootNode.addChildNode(ringNode)
-
-        let halo = SCNTorus(ringRadius: 1.13, pipeRadius: 0.018)
-        halo.ringSegmentCount = 96
-        halo.pipeSegmentCount = 12
-        halo.firstMaterial = material(
-            color("F2A9C5", alpha: 0.46),
-            roughness: 0.5,
-            metalness: 0.02,
-            clearCoat: 0.12,
-            emission: color("F9D4E6", alpha: 0.06)
-        )
-        let haloNode = SCNNode(geometry: halo)
-        haloNode.position = SCNVector3(0, 1.35, -0.46)
-        haloNode.eulerAngles = SCNVector3(Float.pi / 2, 0, 0)
-        haloNode.scale = SCNVector3(1, 1.08, 1)
-        scene.rootNode.addChildNode(haloNode)
+        let rim = SCNTorus(ringRadius: 1.09, pipeRadius: 0.018)
+        rim.ringSegmentCount = 96
+        rim.pipeSegmentCount = 14
+        rim.firstMaterial = material(ribbonColor(mood), roughness: 0.42, metalness: 0.04, clearCoat: 0.22)
+        let rimNode = SCNNode(geometry: rim)
+        rimNode.position.y = -0.175
+        scene.rootNode.addChildNode(rimNode)
     }
 
     private static func addCamera(to scene: SCNScene) {
-        let targetNode = SCNNode()
-        targetNode.position = SCNVector3(0, 1.08, 0)
-        scene.rootNode.addChildNode(targetNode)
+        let target = SCNNode()
+        target.position = SCNVector3(0, 1.03, 0)
+        scene.rootNode.addChildNode(target)
 
         let camera = SCNCamera()
-        // Leave a little breathing room for the tall hair silhouette while
-        // keeping the face large enough to read in the compact card.
-        camera.fieldOfView = 38
+        camera.fieldOfView = 34
         camera.zNear = 0.05
         camera.zFar = 50
         camera.automaticallyAdjustsZRange = true
         camera.wantsHDR = true
         let cameraNode = SCNNode()
         cameraNode.camera = camera
-        cameraNode.position = SCNVector3(0, 1.15, 4.65)
-        cameraNode.constraints = [SCNLookAtConstraint(target: targetNode)]
+        cameraNode.position = SCNVector3(0, 1.13, 4.85)
+        cameraNode.constraints = [SCNLookAtConstraint(target: target)]
         scene.rootNode.addChildNode(cameraNode)
     }
 
-    private static func addLights(to scene: SCNScene) {
-        let keyLight = SCNLight()
-        keyLight.type = .area
-        keyLight.intensity = 620
-        keyLight.color = color("FFF9FC")
-        keyLight.castsShadow = true
-        keyLight.shadowRadius = 12
-        keyLight.shadowColor = color("8E647A", alpha: 0.18)
+    private static func addLights(to scene: SCNScene, mood: MoodLevel?) {
+        let key = SCNLight()
+        key.type = .area
+        key.intensity = 680
+        key.color = color("FFFDFB")
+        key.castsShadow = true
+        key.shadowRadius = 10
+        key.shadowColor = color("5D4A70", alpha: 0.16)
         #if os(macOS)
-        // The preview is small; a 512px map keeps timeline scrubbing light.
-        keyLight.shadowMapSize = CGSize(width: 512, height: 512)
-        keyLight.shadowSampleCount = 8
+        key.shadowMapSize = CGSize(width: 512, height: 512)
+        key.shadowSampleCount = 8
         #endif
         let keyNode = SCNNode()
-        keyNode.light = keyLight
-        keyNode.position = SCNVector3(2.4, 3.5, 4.1)
-        keyNode.eulerAngles = SCNVector3(-0.54, 0.38, 0)
+        keyNode.light = key
+        keyNode.position = SCNVector3(2.8, 3.5, 4.2)
+        keyNode.eulerAngles = SCNVector3(-0.52, 0.44, 0)
         scene.rootNode.addChildNode(keyNode)
 
-        let fillLight = SCNLight()
-        fillLight.type = .omni
-        fillLight.intensity = 320
-        fillLight.color = color("DCEEFF")
+        let fill = SCNLight()
+        fill.type = .area
+        fill.intensity = 330
+        fill.color = color("EAE2FF")
         let fillNode = SCNNode()
-        fillNode.light = fillLight
-        fillNode.position = SCNVector3(-2.2, 2.1, 2.5)
+        fillNode.light = fill
+        fillNode.position = SCNVector3(-2.4, 2.0, 2.5)
         scene.rootNode.addChildNode(fillNode)
 
-        let rimLight = SCNLight()
-        rimLight.type = .omni
-        rimLight.intensity = 300
-        rimLight.color = color("F7C8DF")
+        let rim = SCNLight()
+        rim.type = .omni
+        rim.intensity = 300
+        rim.color = ribbonColor(mood)
         let rimNode = SCNNode()
-        rimNode.light = rimLight
-        rimNode.position = SCNVector3(0.3, 2.6, -2.7)
+        rimNode.light = rim
+        rimNode.position = SCNVector3(0.8, 2.7, -2.4)
         scene.rootNode.addChildNode(rimNode)
 
-        let ambientLight = SCNLight()
-        ambientLight.type = .ambient
-        ambientLight.intensity = 105
-        ambientLight.color = color("FFF5FA")
+        let ambient = SCNLight()
+        ambient.type = .ambient
+        ambient.intensity = 95
+        ambient.color = color("FFF8FF")
         let ambientNode = SCNNode()
-        ambientNode.light = ambientLight
+        ambientNode.light = ambient
         scene.rootNode.addChildNode(ambientNode)
     }
 
-    private enum AnimalKind {
-        case cat
-        case dog
-    }
+    // MARK: - Human character
 
     private static func addHuman(to root: SCNNode, width: Float, depth: Float, height: Float, mood: MoodLevel?) {
-        // Refined chibi proportions keep the face expressive without making it
-        // dwarf the body; measured width/depth still shape the silhouette.
-        let outfit = material(moodColor(mood), roughness: 0.48, metalness: 0.01, clearCoat: 0.24)
-        let skin = material(color("FFE0D2"), roughness: 0.64, metalness: 0, clearCoat: 0.08)
-        let hair = material(color("E9A9C5"), roughness: 0.52, metalness: 0.01, clearCoat: 0.12)
-        let accent = material(color("F6B8CF"), roughness: 0.44, metalness: 0.01, clearCoat: 0.2)
+        let w = CGFloat(width)
+        let d = CGFloat(depth)
+        let h = CGFloat(height)
+        let skin = material(color("FFE5D7"), roughness: 0.70, metalness: 0, clearCoat: 0.05)
+        let hair = material(color("725B91"), roughness: 0.56, metalness: 0.01, clearCoat: 0.14)
+        let hairLight = material(color("8D76AD"), roughness: 0.60, metalness: 0.01, clearCoat: 0.12)
+        let outfit = material(moodColor(mood), roughness: 0.54, metalness: 0.01, clearCoat: 0.18)
+        let outfitLight = material(color("FFF3FA"), roughness: 0.62, metalness: 0, clearCoat: 0.10)
+        let accent = material(color("F4A9C4"), roughness: 0.45, metalness: 0.01, clearCoat: 0.24)
 
-        let torso = SCNCapsule(capRadius: 0.38, height: 0.96)
-        torso.radialSegmentCount = 48
-        torso.firstMaterial = outfit
-        let torsoNode = SCNNode(geometry: torso)
-        torsoNode.scale = SCNVector3(width * 0.92, height * 0.94, depth * 0.82)
-        torsoNode.position = SCNVector3(0, 0.82, 0)
-        root.addChildNode(torsoNode)
+        // Shoes and legs establish a relaxed, slightly pigeon-toed stance.
+        addRoundedBox(to: root, width: 0.18 * w, height: 0.42 * h, depth: 0.18 * d,
+                      radius: 0.085, position: SCNVector3(-0.14 * width, 0.16, 0), material: skin)
+        addRoundedBox(to: root, width: 0.18 * w, height: 0.42 * h, depth: 0.18 * d,
+                      radius: 0.085, position: SCNVector3(0.14 * width, 0.16, 0), material: skin)
+        addRoundedBox(to: root, width: 0.25 * w, height: 0.13, depth: 0.34 * d,
+                      radius: 0.065, position: SCNVector3(-0.16 * width, -0.075, 0.09), material: accent)
+        addRoundedBox(to: root, width: 0.25 * w, height: 0.13, depth: 0.34 * d,
+                      radius: 0.065, position: SCNVector3(0.16 * width, -0.075, 0.09), material: accent)
 
-        let skirt = SCNCapsule(capRadius: 0.33, height: 0.66)
-        skirt.radialSegmentCount = 40
-        skirt.firstMaterial = outfit
-        let skirtNode = SCNNode(geometry: skirt)
-        skirtNode.scale = SCNVector3(width * 1.04, 0.72 * height, depth * 0.88)
-        skirtNode.position = SCNVector3(0, 0.48, 0)
-        root.addChildNode(skirtNode)
+        // A single tapered silhouette reads as a garment, avoiding the stack
+        // of disconnected primitive spheres that made the old avatar rigid.
+        let dress = extrudedShape(path: dressPath(width: 0.88 * w, height: 1.08 * h), depth: 0.53 * d,
+                                  material: outfit, chamfer: 0.045)
+        let dressNode = SCNNode(geometry: dress)
+        dressNode.position = SCNVector3(0, 0.77, -Float(0.265 * d))
+        root.addChildNode(dressNode)
 
-        addLimb(to: root, position: SCNVector3(-0.39 * width, 0.86, 0), radius: 0.115, length: 0.52 * height, material: outfit, rotation: -0.13)
-        addLimb(to: root, position: SCNVector3(0.39 * width, 0.86, 0), radius: 0.115, length: 0.52 * height, material: outfit, rotation: 0.13)
-        addLimb(to: root, position: SCNVector3(-0.15 * width, 0.18, 0), radius: 0.13, length: 0.64 * height, material: skin, rotation: 0)
-        addLimb(to: root, position: SCNVector3(0.15 * width, 0.18, 0), radius: 0.13, length: 0.64 * height, material: skin, rotation: 0)
-        addHandOrFoot(to: root, position: SCNVector3(-0.45 * width, 0.54, 0.04), scale: SCNVector3(1.02, 0.88, 0.88), material: skin)
-        addHandOrFoot(to: root, position: SCNVector3(0.45 * width, 0.54, 0.04), scale: SCNVector3(1.02, 0.88, 0.88), material: skin)
-        addHandOrFoot(to: root, position: SCNVector3(-0.17 * width, -0.20, 0.10), scale: SCNVector3(1.25, 0.54, 1.55), material: accent)
-        addHandOrFoot(to: root, position: SCNVector3(0.17 * width, -0.20, 0.10), scale: SCNVector3(1.25, 0.54, 1.55), material: accent)
+        addRoundedBox(to: root, width: 0.48 * w, height: 0.42 * h, depth: 0.13 * d,
+                      radius: 0.13, position: SCNVector3(0, 1.075, 0.285 * depth), material: outfitLight)
+        addRoundedBox(to: root, width: 0.64 * w, height: 0.055, depth: 0.15 * d,
+                      radius: 0.025, position: SCNVector3(0, 0.88, 0.30 * depth), material: accent)
+        addRoundedBox(to: root, width: 0.70 * w, height: 0.055, depth: 0.14 * d,
+                      radius: 0.025, position: SCNVector3(0, 0.38, 0.30 * depth), material: outfitLight)
 
-        let neck = SCNCylinder(radius: 0.15, height: 0.16)
-        neck.radialSegmentCount = 32
-        neck.firstMaterial = skin
-        let neckNode = SCNNode(geometry: neck)
-        neckNode.position = SCNVector3(0, 1.30, 0)
-        root.addChildNode(neckNode)
+        // Soft sleeves and hands sit behind the bib so the pose remains clear.
+        addLimb(to: root, position: SCNVector3(-0.43 * width, 1.07, 0.02), radius: 0.095,
+                length: 0.46 * height, material: outfit, rotation: -0.18)
+        addLimb(to: root, position: SCNVector3(0.43 * width, 1.07, 0.02), radius: 0.095,
+                length: 0.46 * height, material: outfit, rotation: 0.18)
+        addRoundedBox(to: root, width: 0.17 * w, height: 0.15, depth: 0.18 * d,
+                      radius: 0.075, position: SCNVector3(-0.48 * width, 0.81, 0.08), material: skin)
+        addRoundedBox(to: root, width: 0.17 * w, height: 0.15, depth: 0.18 * d,
+                      radius: 0.075, position: SCNVector3(0.48 * width, 0.81, 0.08), material: skin)
 
-        let head = SCNSphere(radius: 0.52)
-        head.segmentCount = 56
-        head.firstMaterial = skin
+        // Neck, head and back hair use a rounded-square silhouette for a
+        // polished vinyl-toy feel rather than an oversized sphere.
+        addRoundedBox(to: root, width: 0.16 * w, height: 0.15, depth: 0.16 * d,
+                      radius: 0.06, position: SCNVector3(0, 1.35, 0), material: skin)
+        let backHair = roundedBox(width: 0.98 * w, height: 0.96 * h, depth: 0.42 * d,
+                                  radius: 0.26, material: hair)
+        let backHairNode = SCNNode(geometry: backHair)
+        backHairNode.position = SCNVector3(0, 1.73, -0.12)
+        root.addChildNode(backHairNode)
+
+        let head = roundedBox(width: 0.88 * w, height: 0.78 * h, depth: 0.62 * d,
+                              radius: 0.24, material: skin)
         let headNode = SCNNode(geometry: head)
-        headNode.scale = SCNVector3(width * 0.99, height * 1.00, depth * 0.98)
-        headNode.position = SCNVector3(0, 1.67, 0)
+        headNode.position = SCNVector3(0, 1.70, 0.035)
+        setZRotation(on: headNode, value: 0.018)
         root.addChildNode(headNode)
 
-        let hairCap = SCNSphere(radius: 0.55)
-        hairCap.segmentCount = 56
-        hairCap.firstMaterial = hair
-        let hairNode = SCNNode(geometry: hairCap)
-        hairNode.scale = SCNVector3(width * 1.01, height * 0.68, depth * 1.00)
-        hairNode.position = SCNVector3(0, 1.84, -0.035)
-        root.addChildNode(hairNode)
-
-        for index in -1...1 {
-            let strand = SCNCapsule(capRadius: 0.070, height: 0.34)
-            strand.radialSegmentCount = 28
-            strand.firstMaterial = hair
-            let strandNode = SCNNode(geometry: strand)
-            strandNode.position = SCNVector3(Float(index) * 0.18 * width, 1.73 + (index == 0 ? 0.025 : 0), 0.40 * depth)
-            strandNode.scale = SCNVector3(0.82, 1.0 + (index == 0 ? 0.06 : 0), 0.38)
-            setZRotation(on: strandNode, value: Float(index) * 0.06)
-            root.addChildNode(strandNode)
-        }
-
-        // Twin side locks and a small bow make the silhouette feel intentional.
+        // Layered fringe and side locks create a readable silhouette at the
+        // compact size used by the trend card.
+        addHairFringe(to: root, width: width, depth: depth, hair: hair, hairLight: hairLight)
         for side: Float in [-1, 1] {
-            let lock = SCNCapsule(capRadius: 0.078, height: 0.46)
-            lock.radialSegmentCount = 28
-            lock.firstMaterial = hair
-            let lockNode = SCNNode(geometry: lock)
-            lockNode.position = SCNVector3(side * 0.38 * width, 1.53, 0.20 * depth)
-            lockNode.scale = SCNVector3(0.86, 1.0, 0.44)
-            setZRotation(on: lockNode, value: side * -0.15)
-            root.addChildNode(lockNode)
+            addRoundedBox(to: root, width: 0.18 * w, height: 0.40 * h, depth: 0.18 * d,
+                          radius: 0.085, position: SCNVector3(side * 0.40 * width, 1.54, 0.18 * depth),
+                          material: hair, rotation: -side * 0.10)
+            addRoundedBox(to: root, width: 0.11 * w, height: 0.24 * h, depth: 0.10 * d,
+                          radius: 0.05, position: SCNVector3(side * 0.46 * width, 1.42, 0.20 * depth),
+                          material: hairLight, rotation: -side * 0.08)
         }
-        addBow(to: root, position: SCNVector3(0.36 * width, 2.04, 0.03), material: accent, scale: 0.56)
-        addFace(to: root, y: 1.67, faceWidth: width, faceDepth: depth, mood: mood)
+        addBow(to: root, position: SCNVector3(0.37 * width, 2.08, 0.18 * depth), material: accent, scale: 0.72)
+        addHumanFace(to: root, y: 1.70, faceWidth: width, faceDepth: depth, mood: mood)
     }
 
-    private static func addAnimal(to root: SCNNode, kind: AnimalKind, width: Float, depth: Float, height: Float, mood: MoodLevel?) {
-        let furColor = kind == .cat ? color("C9B9D9") : color("E5BFA9")
-        let fur = material(furColor, roughness: 0.72, metalness: 0, clearCoat: 0.08)
-        let belly = material(kind == .cat ? color("F1E8F2") : color("FFE5D3"), roughness: 0.76, metalness: 0, clearCoat: 0.06)
-        let accent = material(kind == .cat ? color("F3A9C6") : color("A9CBE3"), roughness: 0.46, metalness: 0.01, clearCoat: 0.18)
+    private static func addHairFringe(to root: SCNNode, width: Float, depth: Float,
+                                      hair: SCNMaterial, hairLight: SCNMaterial) {
+        let w = CGFloat(width)
+        let d = CGFloat(depth)
+        let fringeSpecs: [(Float, Float, Float, SCNMaterial)] = [
+            (-0.27, 1.95, -0.18, hair),
+            (-0.13, 2.00, -0.08, hairLight),
+            (0.02, 2.01, 0.00, hair),
+            (0.17, 1.98, 0.10, hairLight),
+            (0.30, 1.93, 0.18, hair)
+        ]
+        for (x, y, angle, tint) in fringeSpecs {
+            addRoundedBox(to: root, width: 0.23 * w, height: 0.28, depth: 0.13 * d,
+                          radius: 0.095, position: SCNVector3(x * width, y, 0.32 * depth),
+                          material: tint, rotation: angle)
+        }
+    }
 
-        let body = SCNSphere(radius: 0.70)
-        body.segmentCount = 48
-        body.firstMaterial = fur
+    private static func addHumanFace(to root: SCNNode, y: Float, faceWidth: Float,
+                                     faceDepth: Float, mood: MoodLevel?) {
+        let w = CGFloat(faceWidth)
+        let eyeWhite = material(color("FFFEFC"), roughness: 0.28, metalness: 0, clearCoat: 0.28)
+        let iris = material(color("5C4A78"), roughness: 0.32, metalness: 0, clearCoat: 0.38)
+        let irisGlow = material(color("9D8AC5"), roughness: 0.36, metalness: 0, clearCoat: 0.28)
+        let cheek = material(color("F39AB8", alpha: 0.58), roughness: 0.55, metalness: 0, clearCoat: 0.04)
+        let brow = material(color("6A527E"), roughness: 0.58, metalness: 0, clearCoat: 0.06)
+
+        for side: Float in [-1, 1] {
+            addRoundedBox(to: root, width: 0.205 * w, height: 0.285, depth: 0.085,
+                          radius: 0.095, position: SCNVector3(side * 0.185 * faceWidth, y + 0.015, 0.345 * faceDepth), material: eyeWhite)
+            addRoundedBox(to: root, width: 0.105 * w, height: 0.17, depth: 0.055,
+                          radius: 0.045, position: SCNVector3(side * 0.185 * faceWidth, y + 0.005, 0.405 * faceDepth), material: iris)
+            addRoundedBox(to: root, width: 0.060 * w, height: 0.10, depth: 0.032,
+                          radius: 0.028, position: SCNVector3(side * 0.185 * faceWidth, y - 0.005, 0.438 * faceDepth), material: irisGlow)
+            let shine = SCNSphere(radius: 0.026)
+            shine.segmentCount = 24
+            shine.firstMaterial = material(color("FFFFFF"), roughness: 0.12, metalness: 0, clearCoat: 0.55)
+            let shineNode = SCNNode(geometry: shine)
+            shineNode.position = SCNVector3(side * 0.16 * faceWidth, y + 0.068, 0.468 * faceDepth)
+            root.addChildNode(shineNode)
+
+            addRoundedBox(to: root, width: 0.13 * w, height: 0.026, depth: 0.025,
+                          radius: 0.013, position: SCNVector3(side * 0.185 * faceWidth, y + 0.205, 0.36 * faceDepth), material: brow, rotation: side * 0.08)
+            addRoundedBox(to: root, width: 0.17 * w, height: 0.062, depth: 0.022,
+                          radius: 0.028, position: SCNVector3(side * 0.285 * faceWidth, y - 0.105, 0.365 * faceDepth), material: cheek, rotation: side * 0.08)
+        }
+
+        let nose = SCNSphere(radius: 0.034)
+        nose.segmentCount = 24
+        nose.firstMaterial = material(color("E69A9D"), roughness: 0.42, metalness: 0, clearCoat: 0.10)
+        let noseNode = SCNNode(geometry: nose)
+        noseNode.scale = SCNVector3(1.2, 0.72, 0.7)
+        noseNode.position = SCNVector3(0, y - 0.075, 0.445 * faceDepth)
+        root.addChildNode(noseNode)
+
+        let mouth = roundedBox(width: 0.13, height: 0.032, depth: 0.025, radius: 0.014,
+                               material: material(color("915C79"), roughness: 0.48, metalness: 0, clearCoat: 0.08))
+        let mouthNode = SCNNode(geometry: mouth)
+        mouthNode.position = SCNVector3(0, y - 0.155, 0.445 * faceDepth)
+        mouthNode.scale = SCNVector3(1, mood == .low || mood == .veryLow ? 0.72 : 1.0, 1)
+        root.addChildNode(mouthNode)
+        addRoundedBox(to: root, width: 0.045, height: 0.025, depth: 0.020, radius: 0.012,
+                      position: SCNVector3(0, y - 0.184, 0.448 * faceDepth), material: cheek)
+    }
+
+    // MARK: - Animal characters
+
+    private enum AnimalKind { case cat, dog }
+
+    private static func addAnimal(to root: SCNNode, kind: AnimalKind, width: Float, depth: Float,
+                                  height: Float, mood: MoodLevel?) {
+        let w = CGFloat(width)
+        let d = CGFloat(depth)
+        let h = CGFloat(height)
+        let isCat = kind == .cat
+        let fur = material(color(isCat ? "B7A7D6" : "D9B49B"), roughness: 0.74, metalness: 0, clearCoat: 0.08)
+        let furLight = material(color(isCat ? "DCCFF0" : "F0D2BC"), roughness: 0.80, metalness: 0, clearCoat: 0.04)
+        let innerEar = material(color(isCat ? "F0B0C8" : "E7AFA8"), roughness: 0.66, metalness: 0, clearCoat: 0.04)
+        let accent = material(color(isCat ? "F39BBC" : "A7C7E7"), roughness: 0.46, metalness: 0.01, clearCoat: 0.20)
+
+        addRoundedBox(to: root, width: 0.22 * w, height: 0.36 * h, depth: 0.20 * d,
+                      radius: 0.10, position: SCNVector3(-0.23 * width, 0.15, 0.02), material: fur)
+        addRoundedBox(to: root, width: 0.22 * w, height: 0.36 * h, depth: 0.20 * d,
+                      radius: 0.10, position: SCNVector3(0.23 * width, 0.15, 0.02), material: fur)
+        addRoundedBox(to: root, width: 0.34 * w, height: 0.14, depth: 0.31 * d,
+                      radius: 0.07, position: SCNVector3(-0.25 * width, -0.055, 0.10), material: furLight)
+        addRoundedBox(to: root, width: 0.34 * w, height: 0.14, depth: 0.31 * d,
+                      radius: 0.07, position: SCNVector3(0.25 * width, -0.055, 0.10), material: furLight)
+
+        let body = roundedBox(width: 0.98 * w, height: 0.68 * h, depth: 0.62 * d, radius: 0.24, material: fur)
         let bodyNode = SCNNode(geometry: body)
-        bodyNode.scale = SCNVector3(0.96 * width, 0.68 * height, 0.78 * depth)
         bodyNode.position = SCNVector3(0, 0.72, 0)
         root.addChildNode(bodyNode)
+        addRoundedBox(to: root, width: 0.47 * w, height: 0.45 * h, depth: 0.085,
+                      radius: 0.19, position: SCNVector3(0, 0.72, 0.325 * depth), material: furLight)
+        addRoundedBox(to: root, width: 0.62 * w, height: 0.065, depth: 0.095,
+                      radius: 0.03, position: SCNVector3(0, 0.98, 0.33 * depth), material: accent)
 
-        let bellyPatch = SCNSphere(radius: 0.52)
-        bellyPatch.segmentCount = 40
-        bellyPatch.firstMaterial = belly
-        let bellyNode = SCNNode(geometry: bellyPatch)
-        bellyNode.scale = SCNVector3(0.70 * width, 0.74 * height, 0.26 * depth)
-        bellyNode.position = SCNVector3(0, 0.72, 0.52)
-        root.addChildNode(bellyNode)
-
-        for side: Float in [-1, 1] {
-            addLimb(
-                to: root,
-                position: SCNVector3(side * 0.33 * width, 0.02, 0.04),
-                radius: 0.13,
-                length: 0.38 * height,
-                material: fur,
-                rotation: 0
-            )
-            addHandOrFoot(
-                to: root,
-                position: SCNVector3(side * 0.33 * width, -0.20, 0.09),
-                scale: SCNVector3(0.84, 0.62 * height, 0.88),
-                material: fur
-            )
-        }
-
-        let head = SCNSphere(radius: 0.55)
-        head.segmentCount = 48
-        head.firstMaterial = fur
+        let head = roundedBox(width: 0.92 * w, height: 0.74 * h, depth: 0.60 * d, radius: 0.25, material: fur)
         let headNode = SCNNode(geometry: head)
-        headNode.scale = SCNVector3(width * 0.98, height * 0.98, depth * 0.98)
-        headNode.position = SCNVector3(0, 1.50, 0)
+        headNode.position = SCNVector3(0, 1.49, 0.03)
+        setZRotation(on: headNode, value: isCat ? -0.025 : 0.025)
         root.addChildNode(headNode)
 
-        if kind == .cat {
-            let ear = SCNCone(topRadius: 0.01, bottomRadius: 0.19, height: 0.34)
-            ear.radialSegmentCount = 32
-            ear.firstMaterial = fur
-            for side: Float in [-1, 1] {
-                let earNode = SCNNode(geometry: ear)
-                earNode.position = SCNVector3(side * 0.36 * width, 1.93, 0)
-                setZRotation(on: earNode, value: side * -0.16)
-                root.addChildNode(earNode)
-            }
+        if isCat {
+            addCatEar(to: root, x: -0.33 * width, y: 1.90, z: 0.02, fur: fur, inner: innerEar, rotation: -0.12)
+            addCatEar(to: root, x: 0.33 * width, y: 1.90, z: 0.02, fur: fur, inner: innerEar, rotation: 0.12)
         } else {
-            for side: Float in [-1, 1] {
-                let ear = SCNSphere(radius: 0.19)
-                ear.firstMaterial = fur
-                let earNode = SCNNode(geometry: ear)
-                earNode.scale = SCNVector3(0.62, 1.25, 0.44)
-                earNode.position = SCNVector3(side * 0.42 * width, 1.53, -0.01)
-                root.addChildNode(earNode)
-            }
+            addRoundedBox(to: root, width: 0.25 * w, height: 0.43 * h, depth: 0.18 * d,
+                          radius: 0.105, position: SCNVector3(-0.43 * width, 1.55, -0.02), material: fur, rotation: -0.34)
+            addRoundedBox(to: root, width: 0.25 * w, height: 0.43 * h, depth: 0.18 * d,
+                          radius: 0.105, position: SCNVector3(0.43 * width, 1.55, -0.02), material: fur, rotation: 0.34)
+            addRoundedBox(to: root, width: 0.12 * w, height: 0.22 * h, depth: 0.05,
+                          radius: 0.055, position: SCNVector3(-0.43 * width, 1.55, 0.085), material: innerEar, rotation: -0.34)
+            addRoundedBox(to: root, width: 0.12 * w, height: 0.22 * h, depth: 0.05,
+                          radius: 0.055, position: SCNVector3(0.43 * width, 1.55, 0.085), material: innerEar, rotation: 0.34)
         }
 
-        let muzzle = SCNSphere(radius: 0.19)
-        muzzle.firstMaterial = belly
+        let muzzle = roundedBox(width: 0.42 * w, height: 0.22 * h, depth: 0.18, radius: 0.10, material: furLight)
         let muzzleNode = SCNNode(geometry: muzzle)
-        muzzleNode.scale = SCNVector3(1.18, 0.72, 0.60)
-        muzzleNode.position = SCNVector3(0, 1.41, 0.44)
+        muzzleNode.position = SCNVector3(0, 1.39, 0.34 * depth)
         root.addChildNode(muzzleNode)
 
-        let collar = SCNTorus(ringRadius: 0.30, pipeRadius: 0.028)
-        collar.ringSegmentCount = 64
-        collar.pipeSegmentCount = 12
-        collar.firstMaterial = accent
-        let collarNode = SCNNode(geometry: collar)
-        collarNode.scale = SCNVector3(width, 1, depth)
-        collarNode.position = SCNVector3(0, 1.24, 0)
-        root.addChildNode(collarNode)
-
-        let charm = SCNSphere(radius: 0.055)
-        charm.firstMaterial = material(color("FFF6FB"), roughness: 0.25, metalness: 0.18, clearCoat: 0.5)
-        let charmNode = SCNNode(geometry: charm)
-        charmNode.position = SCNVector3(0, 1.21, 0.30)
-        root.addChildNode(charmNode)
-
-        let tail = SCNTorus(ringRadius: 0.27, pipeRadius: 0.075)
-        tail.ringSegmentCount = 64
-        tail.pipeSegmentCount = 16
-        tail.firstMaterial = fur
-        let tailNode = SCNNode(geometry: tail)
-        tailNode.position = SCNVector3(0.60 * width, 0.68, -0.10)
-        tailNode.eulerAngles = SCNVector3(0.2, 0.1, 0.75)
-        root.addChildNode(tailNode)
-
-        addBow(to: root, position: SCNVector3(-0.38 * width, 1.89, 0.03), material: accent, scale: 0.54)
-        addAnimalFace(to: root, y: 1.50, faceWidth: width, kind: kind, mood: mood)
+        // A little scarf and charm give the animals a designed identity.
+        addRoundedBox(to: root, width: 0.70 * w, height: 0.075, depth: 0.10 * d,
+                      radius: 0.035, position: SCNVector3(0, 1.22, 0.22 * depth), material: accent)
+        addRoundedBox(to: root, width: 0.16 * w, height: 0.14, depth: 0.045,
+                      radius: 0.035, position: SCNVector3(0, 1.13, 0.29 * depth), material: innerEar)
+        addAnimalTail(to: root, width: width, depth: depth, fur: fur, dog: !isCat)
+        addBow(to: root, position: SCNVector3(isCat ? -0.37 * width : 0.37 * width, 1.91, 0.16 * depth), material: accent, scale: 0.58)
+        addAnimalFace(to: root, y: 1.49, faceWidth: width, faceDepth: depth, kind: kind, mood: mood)
     }
+
+    private static func addCatEar(to root: SCNNode, x: Float, y: Float, z: Float,
+                                  fur: SCNMaterial, inner: SCNMaterial, rotation: Float) {
+        let outer = extrudedShape(path: trianglePath(width: 0.34, height: 0.38), depth: 0.16,
+                                  material: fur, chamfer: 0.035)
+        let outerNode = SCNNode(geometry: outer)
+        outerNode.position = SCNVector3(x, y, z)
+        setZRotation(on: outerNode, value: rotation)
+        root.addChildNode(outerNode)
+
+        let innerGeometry = extrudedShape(path: trianglePath(width: 0.18, height: 0.22), depth: 0.018,
+                                          material: inner, chamfer: 0.018)
+        let innerNode = SCNNode(geometry: innerGeometry)
+        innerNode.position = SCNVector3(x, y - 0.01, 0.085)
+        setZRotation(on: innerNode, value: rotation)
+        root.addChildNode(innerNode)
+    }
+
+    private static func addAnimalTail(to root: SCNNode, width: Float, depth: Float,
+                                      fur: SCNMaterial, dog: Bool) {
+        let sign: Float = dog ? -1 : 1
+        let positions: [(Float, Float, Float)] = dog
+            ? [(0.56, 0.64, -0.12), (0.70, 0.83, -0.10), (0.66, 1.02, -0.08)]
+            : [(0.55, 0.65, -0.12), (0.74, 0.79, -0.10), (0.76, 0.99, -0.08)]
+        for (index, item) in positions.enumerated() {
+            let segment = SCNCapsule(capRadius: dog ? 0.085 : 0.075, height: dog ? 0.30 : 0.34)
+            segment.radialSegmentCount = 28
+            segment.firstMaterial = fur
+            let node = SCNNode(geometry: segment)
+            node.position = SCNVector3(sign * item.0 * width, item.1, item.2 * depth)
+            setZRotation(on: node, value: sign * (index == 0 ? -0.65 : (index == 1 ? 0.35 : 0.75)))
+            root.addChildNode(node)
+        }
+    }
+
+    private static func addAnimalFace(to root: SCNNode, y: Float, faceWidth: Float,
+                                      faceDepth: Float, kind: AnimalKind, mood: MoodLevel?) {
+        let w = CGFloat(faceWidth)
+        let eye = material(color("4B3D64"), roughness: 0.30, metalness: 0, clearCoat: 0.42)
+        let eyeGlow = material(color("9E8BC4"), roughness: 0.36, metalness: 0, clearCoat: 0.28)
+        let cheek = material(color("F39AB8", alpha: 0.52), roughness: 0.54, metalness: 0, clearCoat: 0.04)
+        for side: Float in [-1, 1] {
+            addRoundedBox(to: root, width: 0.13 * w, height: 0.18, depth: 0.06,
+                          radius: 0.055, position: SCNVector3(side * 0.20 * faceWidth, y + 0.03, 0.36 * faceDepth), material: eye)
+            addRoundedBox(to: root, width: 0.070 * w, height: 0.10, depth: 0.028,
+                          radius: 0.026, position: SCNVector3(side * 0.20 * faceWidth, y + 0.02, 0.398 * faceDepth), material: eyeGlow)
+            let shine = SCNSphere(radius: 0.021)
+            shine.firstMaterial = material(color("FFFFFF"), roughness: 0.12, metalness: 0, clearCoat: 0.55)
+            let shineNode = SCNNode(geometry: shine)
+            shineNode.position = SCNVector3(side * 0.17 * faceWidth, y + 0.075, 0.43 * faceDepth)
+            root.addChildNode(shineNode)
+            addRoundedBox(to: root, width: 0.16 * w, height: 0.058, depth: 0.020,
+                          radius: 0.027, position: SCNVector3(side * 0.30 * faceWidth, y - 0.095, 0.37 * faceDepth), material: cheek, rotation: side * 0.08)
+        }
+
+        let nose = roundedBox(width: kind == .cat ? 0.075 : 0.10, height: 0.065, depth: 0.055,
+                             radius: 0.025, material: material(kind == .cat ? color("D98C9D") : color("685652"), roughness: 0.38, metalness: 0, clearCoat: 0.16))
+        let noseNode = SCNNode(geometry: nose)
+        noseNode.position = SCNVector3(0, y - 0.075, 0.43 * faceDepth)
+        root.addChildNode(noseNode)
+
+        let mouth = roundedBox(width: 0.12, height: 0.028, depth: 0.022, radius: 0.012,
+                               material: material(color("8D5871"), roughness: 0.46, metalness: 0, clearCoat: 0.08))
+        let mouthNode = SCNNode(geometry: mouth)
+        mouthNode.position = SCNVector3(0, y - 0.145, 0.432 * faceDepth)
+        mouthNode.scale = SCNVector3(1, mood == .low || mood == .veryLow ? 0.72 : 1, 1)
+        root.addChildNode(mouthNode)
+    }
+
+    // MARK: - Custom photo avatar
 
     private static func addPhoto(to root: SCNNode, image: BodyTrendPlatformImage, width: Float, height: Float) {
         let cardWidth = CGFloat(1.32 * width)
         let cardHeight = CGFloat(2.16 * height)
-
-        let backing = SCNBox(width: cardWidth + 0.12, height: cardHeight + 0.12, length: 0.08, chamferRadius: 0.12)
-        backing.firstMaterial = material(color("D8E4E4"), roughness: 0.58, metalness: 0.02, clearCoat: 0.12)
+        let backing = roundedBox(width: cardWidth + 0.16, height: cardHeight + 0.16, depth: 0.10,
+                                 radius: 0.14, material: material(color("D9C8EA"), roughness: 0.58, metalness: 0.02, clearCoat: 0.18))
         let backingNode = SCNNode(geometry: backing)
-        backingNode.position = SCNVector3(0, 1.10, -0.07)
+        backingNode.position = SCNVector3(0, 1.08, -0.07)
         root.addChildNode(backingNode)
 
         let plane = SCNPlane(width: cardWidth, height: cardHeight)
@@ -527,33 +534,56 @@ enum BodyAvatarSceneRenderer {
         photoMaterial.isDoubleSided = true
         plane.firstMaterial = photoMaterial
         let photoNode = SCNNode(geometry: plane)
-        photoNode.position = SCNVector3(0, 1.10, 0.015)
-        setYRotation(on: photoNode, value: 0.05)
+        photoNode.position = SCNVector3(0, 1.08, 0.015)
+        setYRotation(on: photoNode, value: 0.035)
         root.addChildNode(photoNode)
 
-        let frameMaterial = material(color("F8F5EF"), roughness: 0.42, metalness: 0.04, clearCoat: 0.18)
-        let frameThickness: CGFloat = 0.045
-        let top = SCNBox(width: cardWidth + 0.08, height: frameThickness, length: 0.12, chamferRadius: 0.018)
-        let side = SCNBox(width: frameThickness, height: cardHeight + 0.08, length: 0.12, chamferRadius: 0.018)
-        top.firstMaterial = frameMaterial
-        side.firstMaterial = frameMaterial
-        let topNode = SCNNode(geometry: top)
-        topNode.position = SCNVector3(0, 1.10 + Float(cardHeight / 2) + Float(frameThickness / 2), 0.04)
-        root.addChildNode(topNode)
-        let bottomNode = topNode.clone()
-        bottomNode.position = SCNVector3(0, 1.10 - Float(cardHeight / 2) - Float(frameThickness / 2), 0.04)
-        root.addChildNode(bottomNode)
-        let leftNode = SCNNode(geometry: side)
-        leftNode.position = SCNVector3(-Float(cardWidth / 2) - Float(frameThickness / 2), 1.10, 0.04)
-        root.addChildNode(leftNode)
-        let rightNode = leftNode.clone()
-        rightNode.position = SCNVector3(Float(cardWidth / 2) + Float(frameThickness / 2), 1.10, 0.04)
-        root.addChildNode(rightNode)
+        let frame = material(color("FFFDFD"), roughness: 0.40, metalness: 0.04, clearCoat: 0.24)
+        let border: CGFloat = 0.048
+        addRoundedBox(to: root, width: cardWidth + 0.08, height: border, depth: 0.12, radius: 0.018,
+                      position: SCNVector3(0, 1.08 + Float(cardHeight / 2) + Float(border / 2), 0.045), material: frame)
+        addRoundedBox(to: root, width: cardWidth + 0.08, height: border, depth: 0.12, radius: 0.018,
+                      position: SCNVector3(0, 1.08 - Float(cardHeight / 2) - Float(border / 2), 0.045), material: frame)
+        addRoundedBox(to: root, width: border, height: cardHeight + 0.08, depth: 0.12, radius: 0.018,
+                      position: SCNVector3(-Float(cardWidth / 2) - Float(border / 2), 1.08, 0.045), material: frame)
+        addRoundedBox(to: root, width: border, height: cardHeight + 0.08, depth: 0.12, radius: 0.018,
+                      position: SCNVector3(Float(cardWidth / 2) + Float(border / 2), 1.08, 0.045), material: frame)
     }
 
-    private static func addLimb(to root: SCNNode, position: SCNVector3, radius: CGFloat, length: Float, material: SCNMaterial, rotation: Float) {
+    // MARK: - Geometry helpers
+
+    private static func roundedBox(width: CGFloat, height: CGFloat, depth: CGFloat,
+                                  radius: CGFloat, material: SCNMaterial) -> SCNBox {
+        let geometry = SCNBox(width: width, height: height, length: depth, chamferRadius: min(radius, min(width, min(height, depth)) / 2))
+        geometry.widthSegmentCount = 4
+        geometry.heightSegmentCount = 4
+        geometry.lengthSegmentCount = 4
+        geometry.firstMaterial = material
+        return geometry
+    }
+
+    @discardableResult
+    private static func addRoundedBox(to root: SCNNode, width: CGFloat, height: CGFloat, depth: CGFloat,
+                                      radius: CGFloat, position: SCNVector3, material: SCNMaterial,
+                                      rotation: Float = 0) -> SCNNode {
+        let node = SCNNode(geometry: roundedBox(width: width, height: height, depth: depth, radius: radius, material: material))
+        node.position = position
+        if rotation != 0 { setZRotation(on: node, value: rotation) }
+        root.addChildNode(node)
+        return node
+    }
+
+    private static func extrudedShape(path: BodyTrendPlatformPath, depth: CGFloat, material: SCNMaterial, chamfer: CGFloat) -> SCNShape {
+        let geometry = SCNShape(path: path, extrusionDepth: depth)
+        geometry.chamferRadius = chamfer
+        geometry.firstMaterial = material
+        return geometry
+    }
+
+    private static func addLimb(to root: SCNNode, position: SCNVector3, radius: CGFloat,
+                                length: Float, material: SCNMaterial, rotation: Float) {
         let geometry = SCNCapsule(capRadius: radius, height: CGFloat(length))
-        geometry.radialSegmentCount = 32
+        geometry.radialSegmentCount = 36
         geometry.firstMaterial = material
         let node = SCNNode(geometry: geometry)
         node.position = position
@@ -561,162 +591,108 @@ enum BodyAvatarSceneRenderer {
         root.addChildNode(node)
     }
 
-    private static func addHandOrFoot(to root: SCNNode, position: SCNVector3, scale: SCNVector3, material: SCNMaterial) {
-        let geometry = SCNSphere(radius: 0.12)
-        geometry.segmentCount = 32
-        geometry.firstMaterial = material
-        let node = SCNNode(geometry: geometry)
-        node.position = position
-        node.scale = scale
-        root.addChildNode(node)
-    }
-
     private static func addBow(to root: SCNNode, position: SCNVector3, material: SCNMaterial, scale: Float) {
-        let left = SCNSphere(radius: 0.13)
-        left.segmentCount = 32
-        left.firstMaterial = material
-        let leftNode = SCNNode(geometry: left)
-        leftNode.position = position
-        #if os(macOS)
-        leftNode.position.x -= CGFloat(0.11 * scale)
-        #else
-        leftNode.position.x -= 0.11 * scale
-        #endif
-        leftNode.scale = SCNVector3(1.25 * scale, 0.78 * scale, 0.38 * scale)
-        setZRotation(on: leftNode, value: -0.25)
-        root.addChildNode(leftNode)
-
-        let rightNode = leftNode.clone()
-        rightNode.position = position
-        #if os(macOS)
-        rightNode.position.x += CGFloat(0.11 * scale)
-        #else
-        rightNode.position.x += 0.11 * scale
-        #endif
-        setZRotation(on: rightNode, value: 0.25)
-        root.addChildNode(rightNode)
-
-        let center = SCNSphere(radius: 0.075)
+        let s = CGFloat(scale)
+        addRoundedBox(to: root, width: 0.22 * s, height: 0.15 * s, depth: 0.10 * s, radius: 0.07 * s,
+                      position: offsetX(position, by: -0.12 * scale), material: material, rotation: -0.25)
+        addRoundedBox(to: root, width: 0.22 * s, height: 0.15 * s, depth: 0.10 * s, radius: 0.07 * s,
+                      position: offsetX(position, by: 0.12 * scale), material: material, rotation: 0.25)
+        let center = SCNSphere(radius: CGFloat(0.075 * scale))
         center.segmentCount = 28
         center.firstMaterial = material
         let centerNode = SCNNode(geometry: center)
         centerNode.position = position
-        centerNode.scale = SCNVector3(scale, scale, scale)
         root.addChildNode(centerNode)
     }
 
-    private static func addFace(to root: SCNNode, y: Float, faceWidth: Float, faceDepth: Float, mood: MoodLevel?) {
-        let eyeWhite = material(color("FBFAF6"), roughness: 0.30, metalness: 0, clearCoat: 0.24)
-        let eyeDark = material(color("674B6F"), roughness: 0.30, metalness: 0, clearCoat: 0.32)
-        let cheek = material(color("F49ABB", alpha: 0.48), roughness: 0.48, metalness: 0, clearCoat: 0.10)
-
-        for side: Float in [-1, 1] {
-            let white = SCNSphere(radius: 0.086)
-            white.segmentCount = 32
-            white.firstMaterial = eyeWhite
-            let whiteNode = SCNNode(geometry: white)
-            whiteNode.scale = SCNVector3(0.84, 1.16, 0.52)
-            whiteNode.position = SCNVector3(side * 0.18 * faceWidth, y + 0.015, 0.47 * faceDepth)
-            root.addChildNode(whiteNode)
-
-            let pupil = SCNSphere(radius: 0.045)
-            pupil.segmentCount = 24
-            pupil.firstMaterial = eyeDark
-            let pupilNode = SCNNode(geometry: pupil)
-            pupilNode.position = SCNVector3(side * 0.18 * faceWidth, y + 0.01, 0.535 * faceDepth)
-            root.addChildNode(pupilNode)
-
-            let highlight = SCNSphere(radius: 0.013)
-            highlight.firstMaterial = material(color("FFFFFF"), roughness: 0.22, metalness: 0, clearCoat: 0.32)
-            let highlightNode = SCNNode(geometry: highlight)
-            highlightNode.position = SCNVector3(side * 0.16 * faceWidth, y + 0.048, 0.58 * faceDepth)
-            root.addChildNode(highlightNode)
-
-            let cheekNode = SCNNode(geometry: SCNSphere(radius: 0.058))
-            cheekNode.geometry?.firstMaterial = cheek
-            cheekNode.scale = SCNVector3(1.18, 0.46, 0.16)
-            cheekNode.position = SCNVector3(side * 0.27 * faceWidth, y - 0.125, 0.46 * faceDepth)
-            root.addChildNode(cheekNode)
-        }
-
-        let mouth = SCNTorus(ringRadius: mood == .veryLow || mood == .low ? 0.052 : 0.038, pipeRadius: 0.011)
-        mouth.ringSegmentCount = 40
-        mouth.pipeSegmentCount = 10
-        mouth.firstMaterial = material(color("A85E7D"), roughness: 0.44, metalness: 0, clearCoat: 0.14)
-        let mouthNode = SCNNode(geometry: mouth)
-        mouthNode.scale = SCNVector3(1.08, mood == .veryLow || mood == .low ? 0.38 : 0.48, 0.32)
-        mouthNode.position = SCNVector3(0, y - 0.16, 0.50 * faceDepth)
-        root.addChildNode(mouthNode)
+    private static func offsetX(_ position: SCNVector3, by value: Float) -> SCNVector3 {
+        #if os(macOS)
+        return SCNVector3(position.x + CGFloat(value), position.y, position.z)
+        #else
+        return SCNVector3(position.x + value, position.y, position.z)
+        #endif
     }
 
-    private static func addAnimalFace(to root: SCNNode, y: Float, faceWidth: Float, kind: AnimalKind, mood: MoodLevel?) {
-        let eye = material(color("674B6F"), roughness: 0.26, metalness: 0, clearCoat: 0.34)
-        for side: Float in [-1, 1] {
-            let eyeGeometry = SCNSphere(radius: 0.074)
-            eyeGeometry.segmentCount = 28
-            eyeGeometry.firstMaterial = eye
-            let eyeNode = SCNNode(geometry: eyeGeometry)
-            eyeNode.position = SCNVector3(side * 0.20 * faceWidth, y + 0.025, 0.52)
-            root.addChildNode(eyeNode)
-
-            let highlight = SCNSphere(radius: 0.017)
-            highlight.firstMaterial = material(color("FFFFFF"), roughness: 0.22, metalness: 0, clearCoat: 0.32)
-            let highlightNode = SCNNode(geometry: highlight)
-            highlightNode.position = SCNVector3(side * 0.17 * faceWidth, y + 0.06, 0.59)
-            root.addChildNode(highlightNode)
-
-            let cheek = SCNSphere(radius: 0.057)
-            cheek.segmentCount = 24
-            cheek.firstMaterial = material(color("F49ABB", alpha: 0.46), roughness: 0.48, metalness: 0, clearCoat: 0.08)
-            let cheekNode = SCNNode(geometry: cheek)
-            cheekNode.position = SCNVector3(side * 0.30 * faceWidth, y - 0.12, 0.49)
-            cheekNode.scale = SCNVector3(1.12, 0.44, 0.14)
-            root.addChildNode(cheekNode)
-        }
-
-        let nose = SCNSphere(radius: kind == .cat ? 0.038 : 0.052)
-        nose.firstMaterial = material(kind == .cat ? color("A67582") : color("6D625A"), roughness: 0.34, metalness: 0, clearCoat: 0.18)
-        let noseNode = SCNNode(geometry: nose)
-        noseNode.scale = SCNVector3(1.18, 0.76, 0.65)
-        noseNode.position = SCNVector3(0, y - 0.09, 0.56)
-        root.addChildNode(noseNode)
-
-        let mouth = SCNTorus(ringRadius: mood == .veryLow || mood == .low ? 0.05 : 0.036, pipeRadius: 0.012)
-        mouth.firstMaterial = material(color("9E607B"), roughness: 0.44, metalness: 0, clearCoat: 0.12)
-        let mouthNode = SCNNode(geometry: mouth)
-        mouthNode.scale = SCNVector3(1.35, 0.48, 0.42)
-        mouthNode.position = SCNVector3(0, y - 0.15, 0.55)
-        root.addChildNode(mouthNode)
+    private static func dressPath(width: CGFloat, height: CGFloat) -> BodyTrendPlatformPath {
+        let half = width / 2
+        let top = height * 0.48
+        let bottom = -height * 0.52
+        #if os(iOS)
+        let path = UIBezierPath()
+        path.move(to: CGPoint(x: -half * 0.52, y: top))
+        path.addCurve(to: CGPoint(x: half * 0.52, y: top), controlPoint1: CGPoint(x: -half * 0.25, y: top + 0.04), controlPoint2: CGPoint(x: half * 0.25, y: top + 0.04))
+        path.addCurve(to: CGPoint(x: half, y: bottom), controlPoint1: CGPoint(x: half * 0.70, y: top - 0.28), controlPoint2: CGPoint(x: half * 0.94, y: bottom + 0.18))
+        path.addCurve(to: CGPoint(x: -half, y: bottom), controlPoint1: CGPoint(x: -half * 0.94, y: bottom + 0.18), controlPoint2: CGPoint(x: -half * 0.70, y: top - 0.28))
+        path.close()
+        return path
+        #elseif os(macOS)
+        let path = NSBezierPath()
+        path.move(to: NSPoint(x: -half * 0.52, y: top))
+        path.curve(to: NSPoint(x: half * 0.52, y: top), controlPoint1: NSPoint(x: -half * 0.25, y: top + 0.04), controlPoint2: NSPoint(x: half * 0.25, y: top + 0.04))
+        path.curve(to: NSPoint(x: half, y: bottom), controlPoint1: NSPoint(x: half * 0.70, y: top - 0.28), controlPoint2: NSPoint(x: half * 0.94, y: bottom + 0.18))
+        path.curve(to: NSPoint(x: -half, y: bottom), controlPoint1: NSPoint(x: -half * 0.94, y: bottom + 0.18), controlPoint2: NSPoint(x: -half * 0.70, y: top - 0.28))
+        path.close()
+        return path
+        #else
+        return BodyTrendPlatformPath()
+        #endif
     }
 
-    private static func material(
-        _ color: BodyTrendPlatformColor,
-        roughness: CGFloat,
-        metalness: CGFloat,
-        clearCoat: CGFloat,
-        emission: BodyTrendPlatformColor? = nil
-    ) -> SCNMaterial {
+    private static func trianglePath(width: CGFloat, height: CGFloat) -> BodyTrendPlatformPath {
+        #if os(iOS)
+        let path = UIBezierPath()
+        path.move(to: CGPoint(x: -width / 2, y: -height / 2))
+        path.addLine(to: CGPoint(x: 0, y: height / 2))
+        path.addLine(to: CGPoint(x: width / 2, y: -height / 2))
+        path.close()
+        return path
+        #elseif os(macOS)
+        let path = NSBezierPath()
+        path.move(to: NSPoint(x: -width / 2, y: -height / 2))
+        path.line(to: NSPoint(x: 0, y: height / 2))
+        path.line(to: NSPoint(x: width / 2, y: -height / 2))
+        path.close()
+        return path
+        #else
+        return BodyTrendPlatformPath()
+        #endif
+    }
+
+    // MARK: - Palette and platform helpers
+
+    private static func ribbonColor(_ mood: MoodLevel?, alpha: CGFloat = 1) -> BodyTrendPlatformColor {
+        switch mood {
+        case .excellent, .good: return color("A7D9C8", alpha: alpha)
+        case .neutral: return color("B9A6E0", alpha: alpha)
+        case .low, .veryLow: return color("EBA8BE", alpha: alpha)
+        case nil: return color("B9A6E0", alpha: alpha)
+        }
+    }
+
+    private static func moodColor(_ mood: MoodLevel?) -> BodyTrendPlatformColor {
+        switch mood {
+        case .excellent: return color("A9DCC8")
+        case .good: return color("B8D8ED")
+        case .neutral: return color("C8B8E7")
+        case .low: return color("F0B0C3")
+        case .veryLow: return color("E99AAA")
+        case nil: return color("C8B8E7")
+        }
+    }
+
+    private static func material(_ color: BodyTrendPlatformColor, roughness: CGFloat,
+                                 metalness: CGFloat, clearCoat: CGFloat,
+                                 emission: BodyTrendPlatformColor? = nil) -> SCNMaterial {
         let material = SCNMaterial()
         material.lightingModel = .physicallyBased
         material.diffuse.contents = color
         material.roughness.contents = roughness
         material.metalness.contents = metalness
         material.clearCoat.contents = clearCoat
-        material.clearCoatRoughness.contents = 0.28
-        if let emission {
-            material.emission.contents = emission
-        }
-        material.specular.contents = BodyTrendPlatformColor.white.withAlphaComponent(0.25)
+        material.clearCoatRoughness.contents = 0.30
+        if let emission { material.emission.contents = emission }
+        material.specular.contents = BodyTrendPlatformColor.white.withAlphaComponent(0.28)
         return material
-    }
-
-    private static func moodColor(_ mood: MoodLevel?) -> BodyTrendPlatformColor {
-        switch mood {
-        case .excellent, .good: return color("9FD9C1")
-        case .neutral: return color("C8B4E8")
-        case .low, .veryLow: return color("F3A6B9")
-        case nil: return color("C8B4E8")
-        }
     }
 
     private static func color(_ hex: String, alpha: CGFloat = 1) -> BodyTrendPlatformColor {
