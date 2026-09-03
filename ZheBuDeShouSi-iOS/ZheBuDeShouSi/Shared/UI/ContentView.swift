@@ -192,7 +192,11 @@ private struct HomeView: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 16) {
-                HomePlanCard(state: state, onEditGoal: onEditGoal)
+                HomePlanCard(
+                    state: state,
+                    onRecord: { onRecord(.weight) },
+                    onEditGoal: onEditGoal
+                )
                 HomeDietEntry(store: diet, onOpen: onShowDiet)
                 HomeTrendAndHistory(
                     state: state,
@@ -270,6 +274,7 @@ private struct HomeDietEntry: View {
 
 private struct HomePlanCard: View {
     @ObservedObject var state: AppState
+    let onRecord: () -> Void
     let onEditGoal: () -> Void
 
     var body: some View {
@@ -295,15 +300,28 @@ private struct HomePlanCard: View {
                 }
             }
 
-            HomeProgressRail(
-                startWeight: state.startWeight,
-                currentWeight: state.weight,
-                endWeight: state.goalWeight,
-                currentTone: state.weightTone(state.weight),
-                unit: state.weightUnit,
-                onEditGoal: onEditGoal
-            )
-                .padding(.top, 28)
+            Group {
+                if let startWeight = state.startWeight,
+                   let currentWeight = state.currentWeight,
+                   state.hasConfiguredGoal {
+                    HomeProgressRail(
+                        startWeight: startWeight,
+                        currentWeight: currentWeight,
+                        endWeight: state.goalWeight,
+                        currentTone: state.weightTone(currentWeight),
+                        unit: state.weightUnit,
+                        onEditGoal: onEditGoal
+                    )
+                } else {
+                    HomeWeightSetupAction(
+                        currentWeight: state.currentWeight,
+                        unit: state.weightUnit,
+                        onRecord: onRecord,
+                        onEditGoal: onEditGoal
+                    )
+                }
+            }
+            .padding(.top, seasonalNote == nil ? 8 : 14)
 
         }
         .padding(.horizontal, 20)
@@ -321,6 +339,55 @@ private struct HomePlanCard: View {
         SolarTermService.greeting(on: .now)
     }
 
+}
+
+private struct HomeWeightSetupAction: View {
+    let currentWeight: Double?
+    let unit: WeightUnit
+    let onRecord: () -> Void
+    let onEditGoal: () -> Void
+
+    var body: some View {
+        Button(action: currentWeight == nil ? onRecord : onEditGoal) {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(Color.waterAccentPale)
+                        .frame(width: 42, height: 42)
+                    Image(systemName: currentWeight == nil ? "scalemass" : "flag.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Color.waterAccent)
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(currentWeight == nil ? "记录第一笔体重" : "设置目标体重")
+                        .roundedFont(14, weight: .heavy)
+                        .foregroundStyle(Color.ink)
+                    Text(detailText)
+                        .roundedFont(10, weight: .medium)
+                        .foregroundStyle(Color.platinumDeep)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Color.platinumDeep)
+            }
+            .frame(minHeight: 58)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(currentWeight == nil ? "记录第一笔体重" : "设置目标体重")
+        .accessibilityValue(currentWeight.map { unit.formatted(fromKilograms: $0) } ?? "暂无体重记录")
+    }
+
+    private var detailText: String {
+        if let currentWeight {
+            return "当前 \(unit.formatted(fromKilograms: currentWeight))"
+        }
+        return "从空白开始，数据只保存在本机"
+    }
 }
 
 private struct HomeProgressRail: View {
@@ -533,7 +600,11 @@ private struct HomeTrendAndHistory: View {
                             .roundedFont(11, weight: .bold)
                             .foregroundStyle(trendDeltaColor)
                     }
-                    WeightTrendChart(records: state.records, goal: state.goalWeight)
+                    WeightTrendChart(
+                        records: state.records,
+                        goal: state.chartGoalWeight,
+                        showsGoal: state.hasConfiguredGoal
+                    )
                         .frame(maxWidth: .infinity)
                         .frame(height: 82)
                 }
@@ -833,7 +904,8 @@ private struct TrendView: View {
             VStack(alignment: .leading, spacing: 0) {
                 WeightTrendChart(
                     records: filteredRecords,
-                    goal: state.goalWeight,
+                    goal: state.chartGoalWeight,
+                    showsGoal: state.hasConfiguredGoal,
                     maxPoints: filteredRecords.count
                 )
                     .frame(height: 267)
@@ -933,7 +1005,11 @@ private struct TrendView: View {
         guard let latest = filteredRecords.first?.weight, let earliest = filteredRecords.last?.weight else { return "记录几次体重后，这里会生成你的阶段变化分析。" }
         let delta = latest - earliest
         let verb = delta <= 0 ? "下降" : "上升"
-        return "这段时间共记录 \(filteredRecords.count) 次，体重\(verb) \(state.weightUnit.formatted(fromKilograms: abs(delta)))。目标体重为 \(state.weightUnit.formatted(fromKilograms: state.goalWeight))，继续保持稳定节奏。"
+        let change = state.weightUnit.formatted(fromKilograms: abs(delta))
+        if state.hasConfiguredGoal {
+            return "这段时间共记录 \(filteredRecords.count) 次，体重\(verb) \(change)。目标体重为 \(state.weightUnit.formatted(fromKilograms: state.goalWeight))，继续保持稳定节奏。"
+        }
+        return "这段时间共记录 \(filteredRecords.count) 次，体重\(verb) \(change)。设置目标体重后，可以继续查看距离目标的变化。"
     }
 
     private func previous(for record: WeightRecord) -> WeightRecord? {
@@ -1388,11 +1464,11 @@ private struct ProfileView: View {
                     Text("今天也很认真").roundedFont(20, weight: .heavy).foregroundStyle(Color.warmText).padding(.top, 18)
                     Text("已经坚持记录 \(state.records.count) 天").roundedFont(11).foregroundStyle(Color.mutedText).padding(.top, 5)
                     HStack(spacing: 0) {
-                        ProfileStat(value: state.weightUnit.formattedValue(fromKilograms: max(0, state.startWeight - state.weight)), label: "已减 \(state.weightUnit.rawValue)")
+                        ProfileStat(value: lossStatValue, label: "已减 \(state.weightUnit.rawValue)")
                         Divider().frame(height: 40)
                         ProfileStat(value: "\(state.records.count)", label: "坚持天数")
                         Divider().frame(height: 40)
-                        ProfileStat(value: state.weightUnit.formattedValue(fromKilograms: state.goalWeight), label: "目标 \(state.weightUnit.rawValue)")
+                        ProfileStat(value: goalStatValue, label: "目标 \(state.weightUnit.rawValue)")
                     }.padding(.top, 25).padding(.bottom, 4)
                 }
                 .padding(.top, 20).padding(.horizontal, 20).padding(.bottom, 20).kawaiiCard(radius: 24)
@@ -1422,6 +1498,17 @@ private struct ProfileView: View {
                 selectedAvatarItem = nil
             }
         }
+    }
+
+    private var lossStatValue: String {
+        guard let startWeight = state.startWeight,
+              let currentWeight = state.currentWeight else { return "--" }
+        return state.weightUnit.formattedValue(fromKilograms: max(0, startWeight - currentWeight))
+    }
+
+    private var goalStatValue: String {
+        guard state.hasConfiguredGoal else { return "--" }
+        return state.weightUnit.formattedValue(fromKilograms: state.goalWeight)
     }
 }
 
@@ -1788,7 +1875,7 @@ private struct GoalWeightModal: View {
     init(state: AppState, onDismiss: @escaping () -> Void) {
         self.state = state
         self.onDismiss = onDismiss
-        _kilograms = State(initialValue: state.goalWeight)
+        _kilograms = State(initialValue: state.hasConfiguredGoal ? state.goalWeight : (state.currentWeight ?? 60))
         _unit = State(initialValue: state.weightUnit)
     }
 
@@ -1844,7 +1931,7 @@ private struct RecordModal: View {
 
     init(type: RecordType, state: AppState, onDismiss: @escaping () -> Void) {
         self.type = type; self.state = state; self.onDismiss = onDismiss
-        _kilograms = State(initialValue: state.weight)
+        _kilograms = State(initialValue: state.currentWeight ?? 60)
         _unit = State(initialValue: state.weightUnit)
         _date = State(initialValue: Calendar.current.startOfDay(for: .now))
     }

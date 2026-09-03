@@ -177,14 +177,6 @@ enum TrendPeriod: String, CaseIterable {
     case week = "7天"
     case month = "30天"
     case quarter = "3个月"
-
-    var loss: Double {
-        switch self {
-        case .week: return 0.7
-        case .month: return 1.8
-        case .quarter: return 3.4
-        }
-    }
 }
 
 enum MascotKind {
@@ -245,45 +237,55 @@ struct WeightRecord: Identifiable, Codable {
 
 @MainActor
 final class AppState: ObservableObject {
+    static let storageKey = "zhebudeshousi.appState"
     static let goalWeightRange = WeightUnit.minimumKilograms...WeightUnit.maximumKilograms
 
-    @Published var weight: Double = 58.6
-    @Published private(set) var goalWeight: Double = 54.0
-    @Published var water: Int = 1200
+    @Published var weight: Double = 0
+    @Published private(set) var goalWeight: Double = 0
+    @Published var water: Int = 0
     @Published var records: [WeightRecord] = []
     @Published var logs: [ActivityLog] = []
     @Published private(set) var avatarData: Data?
     @Published private(set) var weightUnit: WeightUnit = .kilograms
 
-    private let storageKey = "zhebudeshousi.appState"
+    private let defaults: UserDefaults
 
-    init() {
-        let calendar = Calendar.current
-        let today = Date()
-        records = [
-            WeightRecord(date: today, weight: 58.6, note: "晨起空腹", change: -0.2),
-            WeightRecord(date: calendar.date(byAdding: .day, value: -1, to: today) ?? today, weight: 58.8, note: "晨起空腹", change: -0.1),
-            WeightRecord(date: calendar.date(byAdding: .day, value: -2, to: today) ?? today, weight: 58.9, note: "晨起空腹", change: -0.2),
-            WeightRecord(date: calendar.date(byAdding: .day, value: -3, to: today) ?? today, weight: 59.1, note: "晚餐后", change: -0.2)
-        ]
-        logs = [
-            ActivityLog(kind: .meal, title: "鸡胸肉沙拉", date: today, amount: "420 kcal", note: "午餐 · 12:18"),
-            ActivityLog(kind: .water, title: "补充水分", date: today, amount: "300 ml", note: "上午 · 10:35"),
-            ActivityLog(kind: .sport, title: "公园散步", date: today, amount: "32 分钟", note: "运动 · 09:10")
-        ]
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
         load()
     }
 
-    var startWeight: Double { 62.0 }
+    var currentWeight: Double? {
+        records.max(by: { $0.date < $1.date })?.weight
+            ?? (Self.goalWeightRange.contains(weight) ? weight : nil)
+    }
+
+    var startWeight: Double? {
+        records.min(by: { $0.date < $1.date })?.weight ?? currentWeight
+    }
+
+    var hasWeightData: Bool { currentWeight != nil }
+    var hasConfiguredGoal: Bool { Self.goalWeightRange.contains(goalWeight) }
+
+    var chartGoalWeight: Double {
+        hasConfiguredGoal ? goalWeight : (currentWeight ?? WeightUnit.minimumKilograms)
+    }
+
     /// Gap = 当日体重 - 目标体重。正数代表还高于目标，负数代表已经低于目标。
-    var weightGap: Double { weight - goalWeight }
-    var goalProgress: Double {
+    var weightGap: Double? {
+        guard let currentWeight, hasConfiguredGoal else { return nil }
+        return currentWeight - goalWeight
+    }
+
+    var goalProgress: Double? {
+        guard let startWeight, let currentWeight, hasConfiguredGoal else { return nil }
         let totalChange = goalWeight - startWeight
-        guard abs(totalChange) > 0.05 else { return abs(weight - goalWeight) <= 0.05 ? 1 : 0 }
-        return min(1, max(0, (weight - startWeight) / totalChange))
+        guard abs(totalChange) > 0.05 else { return abs(currentWeight - goalWeight) <= 0.05 ? 1 : 0 }
+        return min(1, max(0, (currentWeight - startWeight) / totalChange))
     }
 
     func weightTone(_ value: Double) -> Color {
+        guard hasConfiguredGoal else { return .waterAccent }
         let distance = value - goalWeight
         if distance <= 0 { return .mintGreen }
         if distance < 1.5 { return Color(hex: "E5A173") }
@@ -320,7 +322,7 @@ final class AppState: ObservableObject {
         let previous = records
             .filter { $0.date < date }
             .max(by: { $0.date < $1.date })
-        let difference = normalizedValue - (previous?.weight ?? weight)
+        let difference = normalizedValue - (previous?.weight ?? currentWeight ?? normalizedValue)
         let cleanedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
         records.append(
             WeightRecord(
@@ -404,29 +406,73 @@ final class AppState: ObservableObject {
     }
 
     private struct Snapshot: Codable {
-        var weight: Double
+        var weight: Double?
         var goalWeight: Double?
         var water: Int
         var records: [WeightRecord]
         var logs: [ActivityLog]
         var avatarData: Data?
         var weightUnit: WeightUnit?
+
+        enum CodingKeys: String, CodingKey {
+            case weight, goalWeight, water, records, logs, avatarData, weightUnit
+        }
+
+        init(
+            weight: Double?,
+            goalWeight: Double?,
+            water: Int,
+            records: [WeightRecord],
+            logs: [ActivityLog],
+            avatarData: Data?,
+            weightUnit: WeightUnit?
+        ) {
+            self.weight = weight
+            self.goalWeight = goalWeight
+            self.water = water
+            self.records = records
+            self.logs = logs
+            self.avatarData = avatarData
+            self.weightUnit = weightUnit
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            weight = try container.decodeIfPresent(Double.self, forKey: .weight)
+            goalWeight = try container.decodeIfPresent(Double.self, forKey: .goalWeight)
+            water = try container.decodeIfPresent(Int.self, forKey: .water) ?? 0
+            records = try container.decodeIfPresent([WeightRecord].self, forKey: .records) ?? []
+            logs = try container.decodeIfPresent([ActivityLog].self, forKey: .logs) ?? []
+            avatarData = try container.decodeIfPresent(Data.self, forKey: .avatarData)
+            weightUnit = try container.decodeIfPresent(WeightUnit.self, forKey: .weightUnit)
+        }
     }
 
     private func save() {
-        let snapshot = Snapshot(weight: weight, goalWeight: goalWeight, water: water, records: records, logs: logs, avatarData: avatarData, weightUnit: weightUnit)
+        let snapshot = Snapshot(
+            weight: currentWeight,
+            goalWeight: hasConfiguredGoal ? goalWeight : nil,
+            water: water,
+            records: records,
+            logs: logs,
+            avatarData: avatarData,
+            weightUnit: weightUnit
+        )
         guard let data = try? JSONEncoder().encode(snapshot) else { return }
-        UserDefaults.standard.set(data, forKey: storageKey)
+        defaults.set(data, forKey: Self.storageKey)
     }
 
     private func load() {
-        guard let data = UserDefaults.standard.data(forKey: storageKey),
+        guard let data = defaults.data(forKey: Self.storageKey),
               let snapshot = try? JSONDecoder().decode(Snapshot.self, from: data) else { return }
-        weight = snapshot.weight
-        goalWeight = snapshot.goalWeight ?? goalWeight
-        water = snapshot.water
         records = snapshot.records
-        logs = snapshot.logs
+            .filter { $0.weight.isFinite && Self.goalWeightRange.contains($0.weight) }
+            .sorted { $0.date > $1.date }
+        let restoredWeight = records.first?.weight ?? snapshot.weight
+        weight = restoredWeight.flatMap { Self.goalWeightRange.contains($0) ? $0 : nil } ?? 0
+        goalWeight = snapshot.goalWeight.flatMap { Self.goalWeightRange.contains($0) ? $0 : nil } ?? 0
+        water = max(0, snapshot.water)
+        logs = snapshot.logs.sorted { $0.date > $1.date }
         avatarData = snapshot.avatarData
         weightUnit = snapshot.weightUnit ?? .kilograms
     }

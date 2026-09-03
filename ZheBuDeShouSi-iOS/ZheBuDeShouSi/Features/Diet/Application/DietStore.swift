@@ -29,8 +29,7 @@ final class DietStore: ObservableObject {
     init(
         defaults: UserDefaults = .standard,
         calendar: Calendar = .current,
-        migrateLegacy: Bool = true,
-        seedDemoData: Bool = false
+        migrateLegacy: Bool = true
     ) {
         self.defaults = defaults
         var normalizedCalendar = calendar
@@ -40,13 +39,6 @@ final class DietStore: ObservableObject {
 
         if migrateLegacy {
             migrateLegacyActivityLogsIfNeeded()
-        }
-
-        // Production stays empty for a new user. Previews/tests can request a
-        // small fixture explicitly without polluting a real account.
-        if seedDemoData, meals.isEmpty {
-            meals = Self.demoMeals(calendar: normalizedCalendar)
-            sortAndSave()
         }
     }
 
@@ -251,19 +243,25 @@ final class DietStore: ObservableObject {
         return imported.count
     }
 
+    #if DEBUG
     /// Creates a deterministic fixture for SwiftUI previews and focused tests.
-    /// It uses a private in-memory defaults suite when available and never
-    /// touches the user's persisted records.
+    /// Preview data is compiled only in Debug and never falls back to the
+    /// user's standard defaults domain.
     static func previewStore(calendar: Calendar = .current) -> DietStore {
         let suiteName = "zhebudeshousi.dietStore.preview.\(UUID().uuidString)"
-        let previewDefaults = UserDefaults(suiteName: suiteName) ?? .standard
-        return DietStore(
+        guard let previewDefaults = UserDefaults(suiteName: suiteName) else {
+            fatalError("Unable to create isolated preview defaults")
+        }
+        let store = DietStore(
             defaults: previewDefaults,
             calendar: calendar,
-            migrateLegacy: false,
-            seedDemoData: true
+            migrateLegacy: false
         )
+        store.meals = demoMeals(calendar: calendar)
+        store.sortAndSave()
+        return store
     }
+    #endif
 
     // MARK: - Validation and derived projections
 
@@ -476,6 +474,7 @@ final class DietStore: ObservableObject {
         }
     }
 
+    #if DEBUG
     private static func demoMeals(calendar: Calendar) -> [MealRecord] {
         let today = calendar.startOfDay(for: .now)
         return [
@@ -497,4 +496,5 @@ final class DietStore: ObservableObject {
             )
         ]
     }
+    #endif
 }

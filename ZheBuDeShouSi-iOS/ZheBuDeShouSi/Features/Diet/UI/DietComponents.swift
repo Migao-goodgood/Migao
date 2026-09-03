@@ -663,14 +663,9 @@ struct DietDayDetailModal: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(alignment: .top, spacing: 10) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(DietDateText.dayDetail.string(from: date))
-                        .roundedFont(21, weight: .heavy)
-                        .foregroundStyle(DietPalette.ink)
-                    Text(calendar.isDateInToday(date) ? "今天也好好吃饭" : "这一天的餐桌")
-                        .roundedFont(11, weight: .medium)
-                        .foregroundStyle(DietPalette.muted)
-                }
+                Text(DietDateText.dayDetail.string(from: date))
+                    .roundedFont(21, weight: .heavy)
+                    .foregroundStyle(DietPalette.ink)
                 Spacer(minLength: 8)
                 Button(action: onDismiss) {
                     Image(systemName: "xmark")
@@ -688,34 +683,21 @@ struct DietDayDetailModal: View {
                 VStack(alignment: .leading, spacing: 14) {
                     DietKcalSummary(totalCalories: summary.totalCaloriesKcal, mealCount: summary.mealCount, isToday: calendar.isDateInToday(date))
 
+                    DietDayUploadAction(
+                        title: meals.isEmpty ? "添加饮食照片" : "继续添加照片",
+                        subtitle: meals.isEmpty ? "一次可选多张，之后还能继续追加" : "可再次选择，拼成今天的餐桌",
+                        onUpload: onUpload
+                    )
+
                     if !meals.isEmpty {
                         DietMealPhotoCollage(meals: meals)
                             .frame(height: 192)
                             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                         DietMealList(meals: meals, onRemove: onRemove)
-                    } else {
-                        DietEmptyState(
-                            icon: "camera.macro",
-                            title: "还没有餐桌照片",
-                            message: "上传一张照片，稍后可以在这里确认食物与热量。"
-                        )
                     }
                 }
                 .padding(.bottom, 14)
             }
-
-            Button(action: onUpload) {
-                Label(meals.isEmpty ? "上传这一天的饮食" : "继续添加照片", systemImage: "plus")
-                    .roundedFont(13, weight: .bold)
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 46)
-                    .background(
-                        LinearGradient(colors: [DietPalette.pink, DietPalette.lilac], startPoint: .leading, endPoint: .trailing),
-                        in: RoundedRectangle(cornerRadius: 15, style: .continuous)
-                    )
-            }
-            .buttonStyle(.plain)
         }
         .padding(18)
         .background(DietPalette.paper, in: RoundedRectangle(cornerRadius: 27, style: .continuous))
@@ -724,6 +706,80 @@ struct DietDayDetailModal: View {
                 .stroke(Color.white.opacity(0.95), lineWidth: 1.5)
         }
         .shadow(color: DietPalette.ink.opacity(0.16), radius: 28, y: 14)
+    }
+}
+
+private struct DietDayUploadAction: View {
+    let title: String
+    let subtitle: String
+    let onUpload: () -> Void
+
+    var body: some View {
+        Button(action: onUpload) {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(DietPalette.pinkWash)
+                        .frame(width: 46, height: 46)
+                        .overlay {
+                            Circle()
+                                .stroke(Color.white.opacity(0.92), lineWidth: 1.2)
+                        }
+
+                    Image(systemName: "photo.on.rectangle.angled")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(DietPalette.pinkDeep)
+
+                    ZStack {
+                        Circle()
+                            .fill(DietPalette.pink)
+                        Image(systemName: "plus")
+                            .font(.system(size: 9, weight: .heavy))
+                            .foregroundStyle(.white)
+                    }
+                    .frame(width: 18, height: 18)
+                    .overlay {
+                        Circle()
+                            .stroke(DietPalette.paper, lineWidth: 2)
+                    }
+                    .offset(x: 16, y: 16)
+                }
+                .frame(width: 50, height: 50)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .roundedFont(14, weight: .heavy)
+                        .foregroundStyle(DietPalette.ink)
+                    Text(subtitle)
+                        .roundedFont(10, weight: .medium)
+                        .foregroundStyle(DietPalette.muted)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.78)
+                }
+
+                Spacer(minLength: 6)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(DietPalette.muted)
+            }
+            .padding(.horizontal, 13)
+            .frame(minHeight: 70)
+            .background(
+                LinearGradient(
+                    colors: [DietPalette.pinkWash.opacity(0.72), DietPalette.lilacWash.opacity(0.72)],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                ),
+                in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(DietPalette.rule, lineWidth: 1)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityValue("支持多次选择照片")
     }
 }
 

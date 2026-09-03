@@ -299,8 +299,10 @@ struct WeightCalendarView: View {
                     WeightCalendarDayCell(
                         date: date,
                         summary: summariesByDay[calendar.startOfDay(for: date)],
-                        startWeight: state.startWeight,
-                        goalWeight: state.goalWeight,
+                        startWeight: state.startWeight ?? WeightUnit.minimumKilograms,
+                        goalWeight: state.hasConfiguredGoal
+                            ? state.goalWeight
+                            : (state.startWeight ?? WeightUnit.minimumKilograms),
                         unit: state.weightUnit,
                         calendar: calendar
                     )

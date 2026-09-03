@@ -30,6 +30,9 @@ All contributors, including Codex and human collaborators, must read this file a
   records and goals support switching between 公斤 and 斤 (`1 公斤 = 2 斤`)
   without changing history. Legacy `kg/g` preferences must remain decodable.
 - Weight above the goal uses progressively stronger red tones.
+- Production stores must start empty on a fresh install. Demo measurements,
+  meals, activities, and goals belong only to isolated `#if DEBUG` previews or
+  tests and must never be seeded by the app composition root.
 - The iOS app and WeChat mini program are separate entry points; do not remove or replace one while editing the other.
 
 ## Git and release policy
@@ -40,6 +43,11 @@ All contributors, including Codex and human collaborators, must read this file a
   workflow has completed or its environment limitation is explicitly recorded.
 - A GitHub push or merge does not publish an App Store release.
 - App Store, TestFlight, or Xcode Cloud releases require a separate, explicit release action.
+- Version numbers follow semantic versioning: bump patch for compatible fixes
+  and UI refinements, minor for new user-facing capabilities, and major for
+  incompatible product or persistence changes. Increment the integer Xcode
+  build number for every uploaded build; do not ask the user to choose routine
+  patch/build numbers.
 
 ## Change summary and TestFlight notes
 

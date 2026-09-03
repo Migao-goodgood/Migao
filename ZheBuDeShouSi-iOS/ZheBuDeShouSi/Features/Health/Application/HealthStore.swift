@@ -3,13 +3,16 @@ import Combine
 
 @MainActor
 final class HealthStore: ObservableObject {
+    static let storageKey = "zhebudeshousi.healthStore"
+
     @Published private(set) var bodyMeasurements: [BodyMeasurementRecord] = []
     @Published private(set) var habitRecords: [HabitRecord] = []
 
-    private let storageKey = "zhebudeshousi.healthStore"
+    private let defaults: UserDefaults
     private let calendar: Calendar
 
-    init(calendar: Calendar = .current) {
+    init(defaults: UserDefaults = .standard, calendar: Calendar = .current) {
+        self.defaults = defaults
         self.calendar = calendar
         load()
     }
@@ -155,11 +158,11 @@ final class HealthStore: ObservableObject {
     private func save() {
         let snapshot = Snapshot(bodyMeasurements: bodyMeasurements, habitRecords: habitRecords)
         guard let data = try? JSONEncoder().encode(snapshot) else { return }
-        UserDefaults.standard.set(data, forKey: storageKey)
+        defaults.set(data, forKey: Self.storageKey)
     }
 
     private func load() {
-        guard let data = UserDefaults.standard.data(forKey: storageKey),
+        guard let data = defaults.data(forKey: Self.storageKey),
               let snapshot = try? JSONDecoder().decode(Snapshot.self, from: data) else { return }
         bodyMeasurements = snapshot.bodyMeasurements.sorted { $0.date > $1.date }
         habitRecords = snapshot.habitRecords.sorted { $0.date > $1.date }

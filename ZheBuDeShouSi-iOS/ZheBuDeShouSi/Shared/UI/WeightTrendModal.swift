@@ -28,7 +28,8 @@ struct WeightTrendModal: View {
 
                 WeightTrendPeriodPage(
                     records: records(for: period),
-                    goal: state.goalWeight,
+                    goal: state.chartGoalWeight,
+                    showsGoal: state.hasConfiguredGoal,
                     period: period,
                     unit: state.weightUnit
                 )
@@ -52,6 +53,7 @@ struct WeightTrendModal: View {
 private struct WeightTrendPeriodPage: View {
     let records: [WeightRecord]
     let goal: Double
+    let showsGoal: Bool
     let period: TrendPeriod
     let unit: WeightUnit
 
@@ -88,7 +90,12 @@ private struct WeightTrendPeriodPage: View {
 
             ScrollViewReader { reader in
                 ScrollView(.horizontal, showsIndicators: false) {
-                    WeightTrendChart(records: records, goal: goal, maxPoints: recordLimit)
+                    WeightTrendChart(
+                        records: records,
+                        goal: goal,
+                        showsGoal: showsGoal,
+                        maxPoints: recordLimit
+                    )
                         .frame(width: chartWidth, height: 224)
                         .id("latest-trend-point")
                 }
@@ -105,10 +112,12 @@ private struct WeightTrendPeriodPage: View {
                     .stroke(Color.platinumLight, lineWidth: 1)
             }
 
-            Text("目标 \(unit.formatted(fromKilograms: goal))")
-                .roundedFont(10, weight: .medium)
-                .foregroundStyle(Color.platinumDeep)
-                .frame(maxWidth: .infinity, alignment: .trailing)
+            if showsGoal {
+                Text("目标 \(unit.formatted(fromKilograms: goal))")
+                    .roundedFont(10, weight: .medium)
+                    .foregroundStyle(Color.platinumDeep)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
         }
     }
 
@@ -138,6 +147,7 @@ private struct WeightTrendPeriodPage: View {
 struct WeightTrendChart: View {
     let records: [WeightRecord]
     let goal: Double
+    var showsGoal = true
     var maxPoints: Int = 30
 
     private var plottedRecords: [WeightRecord] {
@@ -150,8 +160,10 @@ struct WeightTrendChart: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let minValue = min((values.min() ?? goal) - 0.5, goal - 0.5)
-            let maxValue = max((values.max() ?? goal) + 0.5, goal + 0.5)
+            let fallback = values.first ?? goal
+            let goalForScale = showsGoal ? goal : fallback
+            let minValue = min((values.min() ?? fallback) - 0.5, goalForScale - 0.5)
+            let maxValue = max((values.max() ?? fallback) + 0.5, goalForScale + 0.5)
             let points = values.enumerated().map { index, value in
                 point(index: index, value: value, size: proxy.size, minValue: minValue, maxValue: maxValue)
             }
@@ -167,12 +179,14 @@ struct WeightTrendChart: View {
                 }
                 .padding(.vertical, 5)
 
-                let goalY = point(index: 0, value: goal, size: proxy.size, minValue: minValue, maxValue: maxValue).y
-                Path { path in
-                    path.move(to: CGPoint(x: 0, y: goalY))
-                    path.addLine(to: CGPoint(x: proxy.size.width, y: goalY))
+                if showsGoal {
+                    let goalY = point(index: 0, value: goal, size: proxy.size, minValue: minValue, maxValue: maxValue).y
+                    Path { path in
+                        path.move(to: CGPoint(x: 0, y: goalY))
+                        path.addLine(to: CGPoint(x: proxy.size.width, y: goalY))
+                    }
+                    .stroke(Color.platinum, style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
                 }
-                .stroke(Color.platinum, style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
 
                 if points.count > 1 {
                     Path { path in
