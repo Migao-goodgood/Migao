@@ -1,27 +1,26 @@
 import Foundation
 import Combine
 
-/// Owns body-composition snapshots and the avatar preferences used by the
-/// trend workspace. Views do not write UserDefaults directly.
+/// Owns verified body-composition snapshots and measurement cadence. Views do
+/// not write UserDefaults directly.
 @MainActor
 final class BodyTrendStore: ObservableObject {
     static let storageKey = "zhebudeshousi.bodyTrendStore.v1"
-    static let maxAvatarImageBytes = 16 * 1024 * 1024
 
     @Published private(set) var snapshots: [InBodySnapshot] = []
-    @Published private(set) var selectedAvatarStyle: AvatarStyle = .helloKitty
-    @Published private(set) var avatarImageData: Data?
+    @Published private(set) var measurementSchedule: InBodyMeasurementSchedule = .defaultSchedule
 
     private let defaults: UserDefaults
+    private let comparisonService: InBodyComparisonService
 
-    init(defaults: UserDefaults = .standard) {
+    init(
+        defaults: UserDefaults = .standard,
+        comparisonService: InBodyComparisonService = InBodyComparisonService()
+    ) {
         self.defaults = defaults
+        self.comparisonService = comparisonService
         load()
     }
-
-    /// Alias kept for presentation code that reads the selected style as a
-    /// simple preference.
-    var avatarStyle: AvatarStyle { selectedAvatarStyle }
 
     /// Newest snapshot, if at least one verified record exists.
     var latest: InBodySnapshot? { snapshots.first }
@@ -62,37 +61,56 @@ final class BodyTrendStore: ObservableObject {
         save()
     }
 
-    func setAvatarStyle(_ style: AvatarStyle) {
-        guard selectedAvatarStyle != style else { return }
-        selectedAvatarStyle = style
-        save()
-    }
-
-    /// Stores the selected avatar image. Callers should downsample photos
-    /// before passing them here; the upper bound protects UserDefaults from
-    /// accidentally receiving a camera-original file.
-    @discardableResult
-    func setAvatarImageData(_ data: Data?) -> Bool {
-        if let data, data.count > Self.maxAvatarImageBytes { return false }
-        avatarImageData = data
-        save()
-        return true
-    }
-
-    func assessment(for snapshot: InBodySnapshot) -> BodyTrendAssessment {
-        let ordered = orderedSnapshots
-        let previous: InBodySnapshot?
-        if let index = ordered.firstIndex(where: { $0.id == snapshot.id }), index > 0 {
-            previous = ordered[index - 1]
-        } else {
-            previous = nil
+    /// Finds an existing check-in that is very likely the same paper report.
+    /// The narrow time window avoids blocking legitimate measurements on the
+    /// same day while still catching accidental double uploads.
+    func likelyDuplicate(
+        of record: InBodySnapshot,
+        timeTolerance: TimeInterval = 10 * 60
+    ) -> InBodySnapshot? {
+        guard let weight = record.weightKg else { return nil }
+        return snapshots.first { existing in
+            guard existing.id != record.id,
+                  let existingWeight = existing.weightKg else { return false }
+            return abs(existing.date.timeIntervalSince(record.date)) <= timeTolerance
+                && abs(existingWeight - weight) < 0.05
         }
-        return BodyTrendEvaluator.evaluate(snapshot: snapshot, previous: previous)
     }
 
-    var latestAssessment: BodyTrendAssessment? {
-        guard let latest else { return nil }
-        return assessment(for: latest)
+    /// Comparison against both the immediately preceding and first check-in.
+    /// The service owns all arithmetic so views only render the result.
+    func comparison(
+        for snapshot: InBodySnapshot,
+        weightUnit: WeightUnit = .kilograms
+    ) -> InBodyProgressComparison {
+        comparisonService.comparison(for: snapshot, in: snapshots, weightUnit: weightUnit)
+    }
+
+    var latestComparison: InBodyProgressComparison? {
+        latest.map { comparison(for: $0) }
+    }
+
+    func updateMeasurementSchedule(_ schedule: InBodyMeasurementSchedule) {
+        let cleaned = schedule.normalized()
+        guard cleaned != measurementSchedule else { return }
+        measurementSchedule = cleaned
+        save()
+    }
+
+    func measurementDueStatus(
+        asOf now: Date = .now,
+        calendar: Calendar = .current
+    ) -> InBodyMeasurementDueStatus {
+        guard measurementSchedule.isEnabled else { return .disabled }
+        guard let latest else { return .noMeasurements }
+        guard let dueDate = measurementSchedule.nextDueDate(
+            after: latest.date,
+            asOf: now,
+            calendar: calendar
+        ) else {
+            return .noMeasurements
+        }
+        return dueDate <= now ? .due(dueDate) : .upcoming(dueDate)
     }
 
     /// Returns records in the calendar month containing the supplied date.
@@ -103,13 +121,16 @@ final class BodyTrendStore: ObservableObject {
     private struct PersistedSnapshot: Codable {
         var version: Int
         var snapshots: [InBodySnapshot]
-        var avatarStyle: AvatarStyle?
-        var avatarImageData: Data?
+        var measurementSchedule: InBodyMeasurementSchedule?
     }
 
     private func validated(_ record: InBodySnapshot) -> InBodySnapshot? {
         var copy = record.normalized()
         guard let weight = copy.weightKg, weight.isFinite, (20...400).contains(weight) else {
+            return nil
+        }
+        guard copy.date >= Self.earliestMeasurementDate,
+              copy.date <= Date().addingTimeInterval(5 * 60) else {
             return nil
         }
 
@@ -121,15 +142,23 @@ final class BodyTrendStore: ObservableObject {
         copy.visceralFatLevel = valid(copy.visceralFatLevel, range: 0...100)
         copy.score = valid(copy.score, range: 0...100)
         copy.waistHipRatio = valid(copy.waistHipRatio, range: 0.2...3)
-        copy.bodyWaterKg = valid(copy.bodyWaterKg, range: 0...150)
+        copy.totalBodyWaterL = valid(copy.totalBodyWaterL, range: 0...150)
         copy.proteinKg = valid(copy.proteinKg, range: 0...100)
         copy.mineralKg = valid(copy.mineralKg, range: 0...30)
         copy.fatFreeMassKg = valid(copy.fatFreeMassKg, range: 0...300)
+        copy.bodyCellMassKg = valid(copy.bodyCellMassKg, range: 0...200)
         copy.basalMetabolicRate = valid(copy.basalMetabolicRate, range: 0...10_000)
+        copy.smiKgPerM2 = valid(copy.smiKgPerM2, range: 0...30)
         copy.targetWeightKg = valid(copy.targetWeightKg, range: 20...400)
         copy.recommendedCalories = valid(copy.recommendedCalories, range: 0...20_000)
         copy.age = copy.age.flatMap { (0...130).contains($0) ? $0 : nil }
         return copy
+    }
+
+    private static var earliestMeasurementDate: Date {
+        Calendar(identifier: .gregorian).date(
+            from: DateComponents(year: 2000, month: 1, day: 1)
+        ) ?? .distantPast
     }
 
     private func valid(_ value: Double?, range: ClosedRange<Double>) -> Double? {
@@ -147,10 +176,9 @@ final class BodyTrendStore: ObservableObject {
 
     private func save() {
         let payload = PersistedSnapshot(
-            version: 2,
+            version: 3,
             snapshots: snapshots,
-            avatarStyle: selectedAvatarStyle,
-            avatarImageData: avatarImageData
+            measurementSchedule: measurementSchedule
         )
         guard let data = try? JSONEncoder().encode(payload) else { return }
         defaults.set(data, forKey: Self.storageKey)
@@ -163,14 +191,6 @@ final class BodyTrendStore: ObservableObject {
             if lhs.date == rhs.date { return lhs.id.uuidString > rhs.id.uuidString }
             return lhs.date > rhs.date
         }
-        // Existing version-1 builds used the generic human as the initial
-        // avatar. Migrate that default to Kitty once; an explicitly chosen
-        // human in a newer payload remains a valid legacy preference.
-        let storedStyle = payload.avatarStyle ?? .helloKitty
-        selectedAvatarStyle = payload.version < 2 && storedStyle == .human ? .helloKitty : storedStyle
-        if let imageData = payload.avatarImageData,
-           imageData.count <= Self.maxAvatarImageBytes {
-            avatarImageData = imageData
-        }
+        measurementSchedule = payload.measurementSchedule?.normalized() ?? .defaultSchedule
     }
 }

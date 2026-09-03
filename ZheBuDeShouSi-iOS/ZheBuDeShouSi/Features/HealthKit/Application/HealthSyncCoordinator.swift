@@ -8,6 +8,7 @@ final class HealthSyncCoordinator: ObservableObject {
     @Published private(set) var importedWeightCount = 0
     @Published private(set) var importedWaistCount = 0
     @Published private(set) var importedHabitCount = 0
+    @Published private(set) var importedDietCount = 0
 
     private let client: HealthKitClient
 
@@ -19,7 +20,11 @@ final class HealthSyncCoordinator: ObservableObject {
     var isAvailable: Bool { client.isAvailable }
     var isSyncing: Bool { connectionState == .syncing }
 
-    func connectAndSync(appState: AppState, healthStore: HealthStore) async {
+    func connectAndSync(
+        appState: AppState,
+        healthStore: HealthStore,
+        dietStore: DietStore? = nil
+    ) async {
         guard !isSyncing else { return }
         guard client.isAvailable else {
             connectionState = .unavailable
@@ -38,6 +43,10 @@ final class HealthSyncCoordinator: ObservableObject {
             importedWeightCount = appState.importHealthKitWeights(weights)
             importedWaistCount = healthStore.importHealthKitWaistSamples(waists)
             importedHabitCount = healthStore.importHealthKitHabitSamples(habits)
+            let energySamples = habits
+                .filter { $0.kind == .meal }
+                .map { DietEnergySample(id: $0.id, date: $0.date, kilocalories: $0.value) }
+            importedDietCount = dietStore?.importEnergySamples(energySamples) ?? 0
             lastSyncDate = .now
             connectionState = .connected
         } catch {

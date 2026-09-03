@@ -3,9 +3,73 @@ import SwiftUI
 
 enum AppTab: String, CaseIterable {
     case home = "首页"
+    case diet = "饮食"
     case trend = "趋势"
-    case habits = "习惯"
     case mine = "我的"
+}
+
+/// User-facing weight units. Values are stored canonically in kilograms so
+/// changing the display unit never changes historical measurements.
+enum WeightUnit: String, Codable, CaseIterable, Identifiable {
+    case kilograms = "kg"
+    case grams = "g"
+
+    static let minimumKilograms = 20.0
+    static let maximumKilograms = 300.0
+    static let stepKilograms = 0.1
+
+    var id: String { rawValue }
+
+    var displayMultiplier: Double {
+        self == .kilograms ? 1 : 1_000
+    }
+
+    var displayDecimals: Int {
+        self == .kilograms ? 1 : 0
+    }
+
+    var tickCount: Int {
+        Int(((Self.maximumKilograms - Self.minimumKilograms) / Self.stepKilograms).rounded()) + 1
+    }
+
+    func displayValue(fromKilograms kilograms: Double) -> Double {
+        kilograms * displayMultiplier
+    }
+
+    func kilograms(fromDisplayValue value: Double) -> Double {
+        value / displayMultiplier
+    }
+
+    func tickIndex(forKilograms kilograms: Double) -> Int {
+        let raw = ((kilograms - Self.minimumKilograms) / Self.stepKilograms).rounded()
+        return min(tickCount - 1, max(0, Int(raw)))
+    }
+
+    func kilograms(forTick index: Int) -> Double {
+        let clamped = min(tickCount - 1, max(0, index))
+        return Self.minimumKilograms + Double(clamped) * Self.stepKilograms
+    }
+
+    func formattedValue(fromKilograms kilograms: Double) -> String {
+        let value = displayValue(fromKilograms: kilograms)
+        let formatter = NumberFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = displayDecimals
+        formatter.maximumFractionDigits = displayDecimals
+        return formatter.string(from: NSNumber(value: value)) ?? String(format: "%.*f", displayDecimals, value)
+    }
+
+    func formatted(fromKilograms kilograms: Double, includeUnit: Bool = true) -> String {
+        let value = formattedValue(fromKilograms: kilograms)
+        return includeUnit ? "\(value) \(rawValue)" : value
+    }
+
+    func rulerLabel(forTick index: Int) -> String {
+        let kilograms = kilograms(forTick: index)
+        if self == .kilograms { return String(format: "%.0f", kilograms) }
+        return formattedValue(fromKilograms: kilograms)
+    }
 }
 
 enum RecordType: String, Codable, CaseIterable {
@@ -147,7 +211,7 @@ struct WeightRecord: Identifiable, Codable {
 
 @MainActor
 final class AppState: ObservableObject {
-    static let goalWeightRange = 20.0...300.0
+    static let goalWeightRange = WeightUnit.minimumKilograms...WeightUnit.maximumKilograms
 
     @Published var weight: Double = 58.6
     @Published private(set) var goalWeight: Double = 54.0
@@ -155,6 +219,7 @@ final class AppState: ObservableObject {
     @Published var records: [WeightRecord] = []
     @Published var logs: [ActivityLog] = []
     @Published private(set) var avatarData: Data?
+    @Published private(set) var weightUnit: WeightUnit = .kilograms
 
     private let storageKey = "zhebudeshousi.appState"
 
@@ -203,11 +268,57 @@ final class AppState: ObservableObject {
         return true
     }
 
-    func addWeight(_ value: Double, note: String) {
-        let difference = value - weight
-        weight = value
-        records.insert(WeightRecord(date: .now, weight: value, note: note.isEmpty ? "刚刚记录" : note, change: difference), at: 0)
-        logs.insert(ActivityLog(kind: .weight, title: "体重记录", date: .now, amount: String(format: "%.1f kg", value), note: note.isEmpty ? timeLabel() : note), at: 0)
+    func updateWeightUnit(_ unit: WeightUnit) {
+        guard weightUnit != unit else { return }
+        weightUnit = unit
+        save()
+    }
+
+    func formattedWeight(_ kilograms: Double, includeUnit: Bool = true) -> String {
+        weightUnit.formatted(fromKilograms: kilograms, includeUnit: includeUnit)
+    }
+
+    func addWeight(_ value: Double, date: Date = .now, note: String) {
+        guard value.isFinite, Self.goalWeightRange.contains(value) else { return }
+
+        let calendar = Calendar.current
+        let previous = records
+            .filter { $0.date < date }
+            .max(by: { $0.date < $1.date })
+        let difference = value - (previous?.weight ?? weight)
+        let cleanedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        records.append(
+            WeightRecord(
+                date: date,
+                weight: (value * 10).rounded() / 10,
+                note: cleanedNote.isEmpty ? "刚刚记录" : cleanedNote,
+                change: difference
+            )
+        )
+        records.sort { $0.date > $1.date }
+
+        // Rebuild neighboring deltas so a backfilled day behaves like any
+        // other chronological record in the trend and calendar.
+        var chronological = records.sorted { $0.date < $1.date }
+        for index in chronological.indices {
+            chronological[index].change = index == chronological.startIndex
+                ? 0
+                : chronological[index].weight - chronological[chronological.index(before: index)].weight
+        }
+        records = chronological.sorted { $0.date > $1.date }
+        weight = records.first?.weight ?? weight
+
+        logs.insert(
+            ActivityLog(
+                kind: .weight,
+                title: "体重记录",
+                date: date,
+                amount: weightUnit.formatted(fromKilograms: value),
+                note: cleanedNote.isEmpty ? timeLabel(for: date, calendar: calendar) : cleanedNote
+            ),
+            at: 0
+        )
+        logs.sort { $0.date > $1.date }
         save()
     }
 
@@ -264,10 +375,11 @@ final class AppState: ObservableObject {
         var records: [WeightRecord]
         var logs: [ActivityLog]
         var avatarData: Data?
+        var weightUnit: WeightUnit?
     }
 
     private func save() {
-        let snapshot = Snapshot(weight: weight, goalWeight: goalWeight, water: water, records: records, logs: logs, avatarData: avatarData)
+        let snapshot = Snapshot(weight: weight, goalWeight: goalWeight, water: water, records: records, logs: logs, avatarData: avatarData, weightUnit: weightUnit)
         guard let data = try? JSONEncoder().encode(snapshot) else { return }
         UserDefaults.standard.set(data, forKey: storageKey)
     }
@@ -281,6 +393,14 @@ final class AppState: ObservableObject {
         records = snapshot.records
         logs = snapshot.logs
         avatarData = snapshot.avatarData
+        weightUnit = snapshot.weightUnit ?? .kilograms
+    }
+
+    private func timeLabel(for date: Date, calendar: Calendar) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = calendar.isDateInToday(date) ? "HH:mm" : "M月d日"
+        return formatter.string(from: date) + " · 刚刚"
     }
 }
 

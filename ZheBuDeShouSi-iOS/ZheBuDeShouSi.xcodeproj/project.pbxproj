@@ -19,8 +19,27 @@
 		A10000000000000000000011 /* Features/BodyTrend/Application/BodyTrendStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000011 /* Features/BodyTrend/Application/BodyTrendStore.swift */; };
 		A10000000000000000000012 /* Features/BodyTrend/Infrastructure/InBodyOCRService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000012 /* Features/BodyTrend/Infrastructure/InBodyOCRService.swift */; };
 		A10000000000000000000013 /* Features/BodyTrend/UI/BodyTrendView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000013 /* Features/BodyTrend/UI/BodyTrendView.swift */; };
-		A10000000000000000000014 /* Features/BodyTrend/Infrastructure/InBodyDocumentScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000014 /* Features/BodyTrend/Infrastructure/InBodyDocumentScanner.swift */; };
-		A10000000000000000000015 /* Features/BodyTrend/UI/BodyAvatarSceneRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000015 /* Features/BodyTrend/UI/BodyAvatarSceneRenderer.swift */; };
+		A10000000000000000000016 /* Features/BodyTrend/Domain/InBodyReportAnalysis.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000016 /* Features/BodyTrend/Domain/InBodyReportAnalysis.swift */; };
+		A10000000000000000000017 /* Features/BodyTrend/Infrastructure/InBodyAIAnalysisService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000017 /* Features/BodyTrend/Infrastructure/InBodyAIAnalysisService.swift */; };
+		A10000000000000000000018 /* Features/WeChatAuth/WeChatAuthCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000018 /* Features/WeChatAuth/WeChatAuthCoordinator.swift */; };
+		A10000000000000000000022 /* Features/BodyTrend/Infrastructure/InBodyMeasurementNotificationScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000022 /* Features/BodyTrend/Infrastructure/InBodyMeasurementNotificationScheduler.swift */; };
+		A10000000000000000000019 /* Features/BodyTrend/Domain/InBodyComparisonModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000019 /* Features/BodyTrend/Domain/InBodyComparisonModels.swift */; };
+		A10000000000000000000020 /* Features/BodyTrend/Application/InBodyComparisonService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000020 /* Features/BodyTrend/Application/InBodyComparisonService.swift */; };
+		A10000000000000000000021 /* Features/BodyTrend/Application/InBodyMeasurementReminder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000021 /* Features/BodyTrend/Application/InBodyMeasurementReminder.swift */; };
+		A10000000000000000000023 /* Features/BodyTrend/UI/InBodyDesign.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000023 /* Features/BodyTrend/UI/InBodyDesign.swift */; };
+		A10000000000000000000024 /* Features/BodyTrend/UI/InBodyTrendComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000024 /* Features/BodyTrend/UI/InBodyTrendComponents.swift */; };
+		A10000000000000000000025 /* Features/BodyTrend/UI/InBodyHistoryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000025 /* Features/BodyTrend/UI/InBodyHistoryViews.swift */; };
+		A10000000000000000000026 /* Features/BodyTrend/UI/InBodyEntrySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000026 /* Features/BodyTrend/UI/InBodyEntrySheet.swift */; };
+		A10000000000000000000027 /* Shared/UI/NumericInputComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000027 /* Shared/UI/NumericInputComponents.swift */; };
+		A10000000000000000000028 /* Shared/UI/WeightCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000028 /* Shared/UI/WeightCalendarView.swift */; };
+		A10000000000000000000029 /* Shared/UI/WeightTrendModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000029 /* Shared/UI/WeightTrendModal.swift */; };
+		A10000000000000000000030 /* Shared/Models/SolarTerm.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000030 /* Shared/Models/SolarTerm.swift */; };
+		A10000000000000000000031 /* Features/Diet/Domain/DietModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000031 /* Features/Diet/Domain/DietModels.swift */; };
+		A10000000000000000000032 /* Features/Diet/Application/DietStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000032 /* Features/Diet/Application/DietStore.swift */; };
+		A10000000000000000000033 /* Features/Diet/UI/DietUIModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000033 /* Features/Diet/UI/DietUIModels.swift */; };
+		A10000000000000000000034 /* Features/Diet/UI/DietComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000034 /* Features/Diet/UI/DietComponents.swift */; };
+		A10000000000000000000035 /* Features/Diet/UI/DietView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000035 /* Features/Diet/UI/DietView.swift */; };
+		A10000000000000000000036 /* Features/Diet/Infrastructure/DietPhotoAnalysisService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000036 /* Features/Diet/Infrastructure/DietPhotoAnalysisService.swift */; };
 		C6882D30302F0C4C00139FA1 /* Resources/Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C6882D2F302F0C4C00139FA1 /* Resources/Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -43,8 +62,27 @@
 		B10000000000000000000011 /* Features/BodyTrend/Application/BodyTrendStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodyTrendStore.swift; sourceTree = "<group>"; };
 		B10000000000000000000012 /* Features/BodyTrend/Infrastructure/InBodyOCRService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InBodyOCRService.swift; sourceTree = "<group>"; };
 		B10000000000000000000013 /* Features/BodyTrend/UI/BodyTrendView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodyTrendView.swift; sourceTree = "<group>"; };
-		B10000000000000000000014 /* Features/BodyTrend/Infrastructure/InBodyDocumentScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InBodyDocumentScanner.swift; sourceTree = "<group>"; };
-		B10000000000000000000015 /* Features/BodyTrend/UI/BodyAvatarSceneRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodyAvatarSceneRenderer.swift; sourceTree = "<group>"; };
+		B10000000000000000000016 /* Features/BodyTrend/Domain/InBodyReportAnalysis.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InBodyReportAnalysis.swift; sourceTree = "<group>"; };
+		B10000000000000000000017 /* Features/BodyTrend/Infrastructure/InBodyAIAnalysisService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InBodyAIAnalysisService.swift; sourceTree = "<group>"; };
+		B10000000000000000000018 /* Features/WeChatAuth/WeChatAuthCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeChatAuthCoordinator.swift; sourceTree = "<group>"; };
+		B10000000000000000000022 /* Features/BodyTrend/Infrastructure/InBodyMeasurementNotificationScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InBodyMeasurementNotificationScheduler.swift; sourceTree = "<group>"; };
+		B10000000000000000000019 /* Features/BodyTrend/Domain/InBodyComparisonModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InBodyComparisonModels.swift; sourceTree = "<group>"; };
+		B10000000000000000000020 /* Features/BodyTrend/Application/InBodyComparisonService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InBodyComparisonService.swift; sourceTree = "<group>"; };
+		B10000000000000000000021 /* Features/BodyTrend/Application/InBodyMeasurementReminder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InBodyMeasurementReminder.swift; sourceTree = "<group>"; };
+		B10000000000000000000023 /* Features/BodyTrend/UI/InBodyDesign.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InBodyDesign.swift; sourceTree = "<group>"; };
+		B10000000000000000000024 /* Features/BodyTrend/UI/InBodyTrendComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InBodyTrendComponents.swift; sourceTree = "<group>"; };
+		B10000000000000000000025 /* Features/BodyTrend/UI/InBodyHistoryViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InBodyHistoryViews.swift; sourceTree = "<group>"; };
+		B10000000000000000000026 /* Features/BodyTrend/UI/InBodyEntrySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InBodyEntrySheet.swift; sourceTree = "<group>"; };
+		B10000000000000000000027 /* Shared/UI/NumericInputComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumericInputComponents.swift; sourceTree = "<group>"; };
+		B10000000000000000000028 /* Shared/UI/WeightCalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeightCalendarView.swift; sourceTree = "<group>"; };
+		B10000000000000000000029 /* Shared/UI/WeightTrendModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeightTrendModal.swift; sourceTree = "<group>"; };
+		B10000000000000000000030 /* Shared/Models/SolarTerm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolarTerm.swift; sourceTree = "<group>"; };
+		B10000000000000000000031 /* Features/Diet/Domain/DietModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DietModels.swift; sourceTree = "<group>"; };
+		B10000000000000000000032 /* Features/Diet/Application/DietStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DietStore.swift; sourceTree = "<group>"; };
+		B10000000000000000000033 /* Features/Diet/UI/DietUIModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DietUIModels.swift; sourceTree = "<group>"; };
+		B10000000000000000000034 /* Features/Diet/UI/DietComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DietComponents.swift; sourceTree = "<group>"; };
+		B10000000000000000000035 /* Features/Diet/UI/DietView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DietView.swift; sourceTree = "<group>"; };
+		B10000000000000000000036 /* Features/Diet/Infrastructure/DietPhotoAnalysisService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DietPhotoAnalysisService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -111,6 +149,8 @@
 				D10000000000000000000007 /* Health */,
 				D1000000000000000000000A /* HealthKit */,
 				D10000000000000000000011 /* BodyTrend */,
+				D10000000000000000000017 /* Diet */,
+				D10000000000000000000016 /* WeChatAuth */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -181,6 +221,8 @@
 			isa = PBXGroup;
 			children = (
 				B10000000000000000000011 /* BodyTrendStore.swift */,
+				B10000000000000000000020 /* InBodyComparisonService.swift */,
+				B10000000000000000000021 /* InBodyMeasurementReminder.swift */,
 			);
 			path = Application;
 			sourceTree = "<group>";
@@ -189,6 +231,8 @@
 			isa = PBXGroup;
 			children = (
 				B10000000000000000000010 /* BodyTrendModels.swift */,
+				B10000000000000000000019 /* InBodyComparisonModels.swift */,
+				B10000000000000000000016 /* InBodyReportAnalysis.swift */,
 			);
 			path = Domain;
 			sourceTree = "<group>";
@@ -197,7 +241,8 @@
 			isa = PBXGroup;
 			children = (
 				B10000000000000000000012 /* InBodyOCRService.swift */,
-				B10000000000000000000014 /* InBodyDocumentScanner.swift */,
+				B10000000000000000000017 /* InBodyAIAnalysisService.swift */,
+				B10000000000000000000022 /* InBodyMeasurementNotificationScheduler.swift */,
 			);
 			path = Infrastructure;
 			sourceTree = "<group>";
@@ -206,9 +251,65 @@
 			isa = PBXGroup;
 			children = (
 				B10000000000000000000013 /* BodyTrendView.swift */,
-				B10000000000000000000015 /* BodyAvatarSceneRenderer.swift */,
+				B10000000000000000000023 /* InBodyDesign.swift */,
+				B10000000000000000000024 /* InBodyTrendComponents.swift */,
+				B10000000000000000000025 /* InBodyHistoryViews.swift */,
+				B10000000000000000000026 /* InBodyEntrySheet.swift */,
 			);
 			path = UI;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000016 /* WeChatAuth */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000018 /* WeChatAuthCoordinator.swift */,
+			);
+			path = WeChatAuth;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000017 /* Diet */ = {
+			isa = PBXGroup;
+			children = (
+				D10000000000000000000018 /* Application */,
+				D10000000000000000000019 /* Domain */,
+				D1000000000000000000001A /* UI */,
+				D1000000000000000000001B /* Infrastructure */,
+			);
+			path = Diet;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000018 /* Application */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000032 /* DietStore.swift */,
+			);
+			path = Application;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000019 /* Domain */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000031 /* DietModels.swift */,
+			);
+			path = Domain;
+			sourceTree = "<group>";
+		};
+		D1000000000000000000001A /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000033 /* DietUIModels.swift */,
+				B10000000000000000000034 /* DietComponents.swift */,
+				B10000000000000000000035 /* DietView.swift */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		D1000000000000000000001B /* Infrastructure */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000036 /* DietPhotoAnalysisService.swift */,
+			);
+			path = Infrastructure;
 			sourceTree = "<group>";
 		};
 		D1000000000000000000000D /* Shared */ = {
@@ -224,6 +325,7 @@
 			isa = PBXGroup;
 			children = (
 				B10000000000000000000002 /* Models.swift */,
+				B10000000000000000000030 /* SolarTerm.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -232,6 +334,9 @@
 			isa = PBXGroup;
 			children = (
 				B10000000000000000000003 /* ContentView.swift */,
+				B10000000000000000000027 /* NumericInputComponents.swift */,
+				B10000000000000000000028 /* WeightCalendarView.swift */,
+				B10000000000000000000029 /* WeightTrendModal.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -338,8 +443,27 @@
 				A10000000000000000000011 /* Features/BodyTrend/Application/BodyTrendStore.swift in Sources */,
 				A10000000000000000000012 /* Features/BodyTrend/Infrastructure/InBodyOCRService.swift in Sources */,
 				A10000000000000000000013 /* Features/BodyTrend/UI/BodyTrendView.swift in Sources */,
-				A10000000000000000000014 /* Features/BodyTrend/Infrastructure/InBodyDocumentScanner.swift in Sources */,
-				A10000000000000000000015 /* Features/BodyTrend/UI/BodyAvatarSceneRenderer.swift in Sources */,
+				A10000000000000000000016 /* Features/BodyTrend/Domain/InBodyReportAnalysis.swift in Sources */,
+				A10000000000000000000017 /* Features/BodyTrend/Infrastructure/InBodyAIAnalysisService.swift in Sources */,
+				A10000000000000000000018 /* Features/WeChatAuth/WeChatAuthCoordinator.swift in Sources */,
+				A10000000000000000000022 /* Features/BodyTrend/Infrastructure/InBodyMeasurementNotificationScheduler.swift in Sources */,
+				A10000000000000000000019 /* Features/BodyTrend/Domain/InBodyComparisonModels.swift in Sources */,
+				A10000000000000000000020 /* Features/BodyTrend/Application/InBodyComparisonService.swift in Sources */,
+				A10000000000000000000021 /* Features/BodyTrend/Application/InBodyMeasurementReminder.swift in Sources */,
+				A10000000000000000000023 /* Features/BodyTrend/UI/InBodyDesign.swift in Sources */,
+				A10000000000000000000024 /* Features/BodyTrend/UI/InBodyTrendComponents.swift in Sources */,
+				A10000000000000000000025 /* Features/BodyTrend/UI/InBodyHistoryViews.swift in Sources */,
+				A10000000000000000000026 /* Features/BodyTrend/UI/InBodyEntrySheet.swift in Sources */,
+				A10000000000000000000027 /* Shared/UI/NumericInputComponents.swift in Sources */,
+				A10000000000000000000028 /* Shared/UI/WeightCalendarView.swift in Sources */,
+				A10000000000000000000029 /* Shared/UI/WeightTrendModal.swift in Sources */,
+				A10000000000000000000030 /* Shared/Models/SolarTerm.swift in Sources */,
+				A10000000000000000000031 /* Features/Diet/Domain/DietModels.swift in Sources */,
+				A10000000000000000000032 /* Features/Diet/Application/DietStore.swift in Sources */,
+				A10000000000000000000033 /* Features/Diet/UI/DietUIModels.swift in Sources */,
+				A10000000000000000000034 /* Features/Diet/UI/DietComponents.swift in Sources */,
+				A10000000000000000000035 /* Features/Diet/UI/DietView.swift in Sources */,
+				A10000000000000000000036 /* Features/Diet/Infrastructure/DietPhotoAnalysisService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -369,7 +493,6 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "用于读取您授权的体重、身体质量指数和活动数据，以展示健康变化趋势并提供体重管理分析。";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "用于将您在“这不得瘦死”中记录的体重、身体质量指数等健康数据同步到“健康”App，便于统一查看和管理。";
-				INFOPLIST_KEY_NSCameraUsageDescription = "用于拍摄并识别 InBody 报告照片。";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -546,7 +669,6 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "用于读取您授权的体重、身体质量指数和活动数据，以展示健康变化趋势并提供体重管理分析。";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "用于将您在“这不得瘦死”中记录的体重、身体质量指数等健康数据同步到“健康”App，便于统一查看和管理。";
-				INFOPLIST_KEY_NSCameraUsageDescription = "用于拍摄并识别 InBody 报告照片。";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

@@ -1,481 +1,352 @@
 import SwiftUI
 import PhotosUI
 
-#if canImport(SceneKit)
-import SceneKit
-#endif
-
-private enum BodyEditorial {
-    static let paper = Color(hex: "F5F1E8")
-    static let ink = Color(hex: "263746")
-    static let muted = Color(hex: "78888B")
-    static let blue = Color(hex: "A9C8CF")
-    static let blueWash = Color(hex: "E4EFF0")
-    static let sage = Color(hex: "AFC3B1")
-    static let blush = Color(hex: "D9AEB0")
-    static let blushWash = Color(hex: "F1DFDA")
-    static let rule = Color(hex: "D9D4C9")
-}
-
 struct BodyTrendView: View {
-    @ObservedObject var state: AppState
     @ObservedObject var store: BodyTrendStore
+    /// Injected at the presentation boundary so a backend or test analyzer
+    /// can replace the default local/OCR pipeline without changing the view.
+    private let reportAnalyzer: AnyInBodyReportAnalyzer
+    /// The app composition root can connect this callback to the platform
+    /// notification scheduler without coupling this view to UserNotifications.
+    private let onMeasurementScheduleChanged: (InBodyMeasurementSchedule, Date?) async -> Bool
+    /// Body weight follows the app-wide display preference; report composition
+    /// masses keep their source units so the report remains comparable.
+    private let weightUnit: WeightUnit
 
-    @State private var selectedIndex = 0.0
     @State private var reportPhotoItem: PhotosPickerItem?
-    @State private var avatarPhotoItem: PhotosPickerItem?
     @State private var reportPhotoData: Data?
+    @State private var reportWasUploaded = false
     @State private var entryDraft = InBodyEntryDraft()
     @State private var isEntryPresented = false
+    @State private var isRemoteAnalysisConsentPresented = false
     @State private var isRecognizing = false
-    @State private var isCameraPresented = false
     @State private var statusMessage = ""
+    @State private var comparisonSelection = ComparisonSelection.previous
+    @State private var selectedTrendMetric = InBodyMetric.weight
+    @State private var selectedHistorySnapshot: InBodySnapshot?
+    @State private var reminderStatusMessage = ""
+    @State private var isUpdatingReminder = false
+
+    init(
+        store: BodyTrendStore,
+        reportAnalyzer: AnyInBodyReportAnalyzer = .live,
+        weightUnit: WeightUnit = .kilograms,
+        onMeasurementScheduleChanged: @escaping (InBodyMeasurementSchedule, Date?) async -> Bool = { _, _ in true }
+    ) {
+        _store = ObservedObject(wrappedValue: store)
+        self.reportAnalyzer = reportAnalyzer
+        self.weightUnit = weightUnit
+        self.onMeasurementScheduleChanged = onMeasurementScheduleChanged
+    }
 
     private var orderedSnapshots: [InBodySnapshot] { store.orderedSnapshots }
-
-    private var selectedSnapshot: InBodySnapshot? {
-        guard !orderedSnapshots.isEmpty else { return nil }
-        let index = min(max(Int(selectedIndex.rounded()), 0), orderedSnapshots.count - 1)
-        return orderedSnapshots[index]
-    }
-
-    private var selectedPosition: Int {
-        guard !orderedSnapshots.isEmpty else { return 0 }
-        return min(max(Int(selectedIndex.rounded()), 0), orderedSnapshots.count - 1)
-    }
-
-    private var previousSnapshot: InBodySnapshot? {
-        guard selectedPosition > 0 else { return nil }
-        return orderedSnapshots[selectedPosition - 1]
-    }
+    private var latestSnapshot: InBodySnapshot? { orderedSnapshots.last }
 
     var body: some View {
-        GeometryReader { proxy in
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 24) {
-                    header
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 24) {
+                header
 
-                    if let snapshot = selectedSnapshot {
-                        avatarStage(snapshot, sceneHeight: populatedSceneHeight(for: proxy.size.height))
-                        timeline
-                        metrics(snapshot)
-                        assessment(snapshot)
-                    } else {
-                        emptyState(availableHeight: emptyContentHeight(for: proxy.size.height))
-                    }
+                if isRecognizing || !statusMessage.isEmpty {
+                    analysisStatus
                 }
-                .padding(.horizontal, 18)
-                .padding(.top, 18)
-                .padding(.bottom, 123)
-                .frame(maxWidth: 720, alignment: .leading)
-                .frame(maxWidth: .infinity, minHeight: max(0, proxy.size.height - 96), alignment: .top)
+
+                measurementSchedule
+
+                if let latest = latestSnapshot {
+                    InBodyLatestSummaryView(
+                        latest: latest,
+                        recordCount: orderedSnapshots.count,
+                        progress: store.comparison(for: latest, weightUnit: weightUnit),
+                        selection: $comparisonSelection,
+                        weightUnit: weightUnit
+                    )
+                    InBodyTrendSection(
+                        snapshots: orderedSnapshots,
+                        selectedMetric: $selectedTrendMetric,
+                        weightUnit: weightUnit
+                    )
+                    InBodyAssessmentView(result: store.comparison(for: latest, weightUnit: weightUnit).analysis)
+                    InBodyHistorySection(
+                        snapshots: orderedSnapshots,
+                        latestSnapshotID: latestSnapshot?.id,
+                        comparisonFor: { store.comparison(for: $0, weightUnit: weightUnit).previous },
+                        onSelect: { selectedHistorySnapshot = $0 },
+                        weightUnit: weightUnit
+                    )
+                } else {
+                    InBodyEmptyState()
+                }
             }
+            .padding(.horizontal, 18)
+            .padding(.top, 18)
+            .padding(.bottom, 123)
+            .frame(maxWidth: 720, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .top)
         }
         .background(BodyEditorial.paper.ignoresSafeArea())
-        .onChange(of: orderedSnapshots.count) { _, count in
-            selectedIndex = min(selectedIndex, Double(max(0, count - 1)))
-        }
         .onChange(of: reportPhotoItem) { _, item in
             recognizeReport(item)
         }
-        .onChange(of: avatarPhotoItem) { _, item in
-            loadAvatarImage(item)
-        }
-        #if os(iOS) && canImport(VisionKit)
-        .sheet(isPresented: $isCameraPresented) {
-            InBodyDocumentScanner(
-                onScan: { data in
-                    isCameraPresented = false
-                    recognizeReportData(data)
-                },
-                onCancel: { isCameraPresented = false }
-            )
-            .ignoresSafeArea()
-        }
-        #endif
-        .sheet(isPresented: $isEntryPresented) {
+        .sheet(isPresented: $isEntryPresented, onDismiss: {
+            reportPhotoData = nil
+            reportWasUploaded = false
+        }) {
             InBodyEntrySheet(
                 store: store,
                 initialDraft: entryDraft,
-                sourcePhotoData: reportPhotoData,
-                onSaved: { selectedIndex = Double(max(0, store.orderedSnapshots.count - 1)) }
+                sourceWasUploaded: reportWasUploaded,
+                onSaved: {
+                    comparisonSelection = .previous
+                    selectedHistorySnapshot = nil
+                    statusMessage = "报告已保存，身体变化对比已更新"
+                    if store.measurementSchedule.isEnabled {
+                        synchronizeMeasurementReminder(store.measurementSchedule)
+                    }
+                }
             )
             .presentationDetents([.large])
+        }
+        .sheet(item: $selectedHistorySnapshot) { snapshot in
+            InBodyHistoryDetailSheet(
+                snapshot: snapshot,
+                comparison: store.comparison(for: snapshot, weightUnit: weightUnit).previous,
+                onDelete: {
+                    store.remove(snapshot)
+                    selectedHistorySnapshot = nil
+                    if store.measurementSchedule.isEnabled {
+                        synchronizeMeasurementReminder(store.measurementSchedule)
+                    }
+                },
+                weightUnit: weightUnit
+            )
+                .presentationDetents([.medium, .large])
+        }
+        .alert(
+            "发送报告进行 AI 分析？",
+            isPresented: $isRemoteAnalysisConsentPresented
+        ) {
+            Button("同意并使用 AI 分析") {
+                guard let data = reportPhotoData else { return }
+                recognizeReportData(data, using: reportAnalyzer)
+            }
+            Button("仅在设备上识别") {
+                guard let data = reportPhotoData else { return }
+                recognizeReportData(data, using: .local)
+            }
+            Button("取消", role: .cancel) {
+                reportPhotoData = nil
+                reportWasUploaded = false
+            }
+        } message: {
+            Text("报告可能包含健康数据和个人信息。选择 AI 分析会把这张图片发送到产品配置的安全服务器；设备端识别不会上传图片。")
+        }
+        .task {
+            if store.measurementSchedule.isEnabled {
+                synchronizeMeasurementReminder(store.measurementSchedule)
+            }
         }
     }
 
     private var header: some View {
-        HStack(alignment: .center, spacing: 8) {
-            Spacer(minLength: 0)
-            HStack(spacing: 8) {
-                Menu {
-                    PhotosPicker(selection: $reportPhotoItem, matching: .images) {
-                        Label("从相册上传", systemImage: "photo")
-                    }
-                    #if os(iOS) && canImport(VisionKit)
-                    Button {
-                        isCameraPresented = true
-                    } label: {
-                        Label("拍照扫描", systemImage: "camera")
-                    }
-                    #endif
-                    Button(action: openManualEntry) {
-                        Label("手动录入", systemImage: "pencil")
-                    }
-                } label: {
-                    headerAction(icon: isRecognizing ? "hourglass" : "doc.viewfinder", title: "扫描", accent: BodyEditorial.blue)
-                }
-                .buttonStyle(.plain)
-                .disabled(isRecognizing)
-                .accessibilityLabel("上传或扫描 InBody 报告")
-
-                Button(action: openManualEntry) {
-                    headerAction(icon: "plus", title: "录入", accent: BodyEditorial.blush)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("手动录入 InBody 数据")
-            }
-        }
-        .padding(.top, 4)
-    }
-
-    private func headerAction(icon: String, title: String, accent: Color) -> some View {
-        HStack(spacing: 5) {
-            Image(systemName: icon)
-                .font(.system(size: 13, weight: .bold))
-            Text(title)
-                .roundedFont(10, weight: .bold)
-        }
-        .foregroundStyle(BodyEditorial.ink)
-        .padding(.horizontal, 9)
-        .frame(height: 33)
-        .background(accent.opacity(0.16))
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(accent).frame(height: 2)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-    }
-
-    private func avatarStage(_ snapshot: InBodySnapshot, sceneHeight: CGFloat) -> some View {
-        let isCustomAvatar = store.selectedAvatarStyle == .custom
-        return VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .center) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(snapshot.date, format: .dateTime.year().month().day())
-                        .roundedFont(14, weight: .bold)
-                        .foregroundStyle(BodyEditorial.ink)
-                    Text(snapshot.source.title)
-                        .roundedFont(10, weight: .medium)
-                        .foregroundStyle(BodyEditorial.muted)
-                }
-                Spacer()
-                MoodBadge(mood: snapshot.mood)
-            }
-
-            BodyAvatarSceneView(
-                snapshot: snapshot,
-                previousSnapshot: previousSnapshot,
-                style: store.selectedAvatarStyle,
-                imageData: store.avatarImageData
-            )
-            .frame(height: sceneHeight)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .padding(.top, 18)
-
-            HStack(spacing: 8) {
-                // Hello Kitty is the intentional focal point. The legacy
-                // character choices remain available from the compact menu so
-                // existing preferences and custom uploads are not discarded.
-                avatarStyleButton(.helloKitty)
-
-                PhotosPicker(selection: $avatarPhotoItem, matching: .images) {
-                    avatarOptionLabel(
-                        icon: "photo.badge.plus",
-                        title: isCustomAvatar ? "已上传" : "自定义",
-                        selected: isCustomAvatar,
-                        accent: BodyEditorial.sage
-                    )
-                }
-                .buttonStyle(.plain)
-                .frame(width: 58)
-                .accessibilityLabel("上传自定义形象")
-
-                Menu {
-                    ForEach([AvatarStyle.human, .cat, .dog], id: \.self) { style in
-                        Button {
-                            store.setAvatarStyle(style)
-                        } label: {
-                            Label(style.title, systemImage: style.symbolName)
-                        }
-                    }
-                } label: {
-                    avatarOptionLabel(icon: "ellipsis", title: "更多", selected: false, accent: BodyEditorial.blue)
-                }
-                .frame(width: 58)
-                .accessibilityLabel("更多形象")
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, 14)
-            .overlay(alignment: .bottom) {
-                Rectangle().fill(BodyEditorial.rule).frame(height: 1)
-            }
-
-            Rectangle()
-                .fill(BodyEditorial.rule)
-                .frame(height: 1)
-                .padding(.top, 14)
-        }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 6)
-        .overlay(alignment: .leading) {
-            Rectangle().fill(BodyEditorial.blush).frame(width: 3)
-        }
-    }
-
-    private func avatarStyleButton(_ style: AvatarStyle) -> some View {
-        let isSelected = store.selectedAvatarStyle == style
-        return Button {
-            store.setAvatarStyle(style)
-        } label: {
-            VStack(spacing: 4) {
-                Image(systemName: style.symbolName)
-                    .font(.system(size: 11, weight: .bold))
-                Text(style.title)
-                    .roundedFont(9, weight: .bold)
-            }
-            .foregroundStyle(isSelected ? BodyEditorial.ink : BodyEditorial.muted)
-            .frame(height: 38)
-            .frame(maxWidth: .infinity)
-            .background(isSelected ? BodyEditorial.blueWash.opacity(0.65) : Color.clear)
-            .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(isSelected ? BodyEditorial.ink : Color.clear)
-                    .frame(height: 2)
-            }
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("选择\(style.title)形象")
-    }
-
-    private func avatarOptionLabel(icon: String, title: String, selected: Bool, accent: Color) -> some View {
-        VStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.system(size: 11, weight: .bold))
-            Text(title)
-                .roundedFont(9, weight: .bold)
-        }
-        .foregroundStyle(selected ? BodyEditorial.ink : accent)
-        .frame(maxWidth: .infinity)
-        .frame(height: 38)
-        .background(selected ? accent.opacity(0.18) : Color.clear)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(selected ? accent : Color.clear)
-                .frame(height: 2)
-        }
-    }
-
-    private var timeline: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .lastTextBaseline) {
-                Text("时间线")
-                    .roundedFont(19, weight: .heavy)
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("身体数据")
+                    .roundedFont(26, weight: .heavy)
                     .foregroundStyle(BodyEditorial.ink)
-                Spacer()
-                Text(orderedSnapshots.isEmpty ? "暂无记录" : "第 \(selectedPosition + 1) / \(orderedSnapshots.count) 次")
-                    .roundedFont(11, weight: .bold)
-                    .foregroundStyle(BodyEditorial.muted)
             }
 
-            Slider(
-                value: $selectedIndex,
-                in: 0...Double(max(0, orderedSnapshots.count - 1)),
-                step: 1
-            )
-            .tint(BodyEditorial.sage)
-            .disabled(orderedSnapshots.count < 2)
-            .padding(.top, 11)
+            Spacer(minLength: 8)
 
-            HStack {
-                if let first = orderedSnapshots.first {
-                    Text(dateLabel(first.date))
-                }
-                Spacer()
-                if let last = orderedSnapshots.last {
-                    Text(dateLabel(last.date))
-                }
-            }
-            .roundedFont(10, weight: .medium)
-            .foregroundStyle(BodyEditorial.muted)
-            .padding(.top, 3)
-
-            if orderedSnapshots.count > 1 {
-                HStack(spacing: 8) {
-                    Text("情绪轨迹")
-                        .roundedFont(10, weight: .bold)
-                        .foregroundStyle(BodyEditorial.ink)
-                    ForEach(Array(orderedSnapshots.enumerated()), id: \.element.id) { index, snapshot in
-                        Button {
-                            selectedIndex = Double(index)
-                        } label: {
-                            Circle()
-                                .fill(moodColor(snapshot.mood))
-                                .frame(width: index == selectedPosition ? 14 : 10, height: index == selectedPosition ? 14 : 10)
-                                .overlay(Circle().stroke(.white, lineWidth: 2))
-                                .overlay(Circle().stroke(BodyEditorial.ink.opacity(index == selectedPosition ? 0.7 : 0), lineWidth: 1.5))
-                        }
-                        .buttonStyle(.plain)
+            PhotosPicker(selection: $reportPhotoItem, matching: .images) {
+                HStack(spacing: 6) {
+                    ZStack {
+                        Circle()
+                            .fill((isRecognizing ? BodyEditorial.gold : BodyEditorial.blue).opacity(0.16))
+                            .frame(width: 30, height: 30)
+                        Image(systemName: isRecognizing ? "hourglass" : "photo.badge.plus")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(isRecognizing ? BodyEditorial.gold : BodyEditorial.blue)
                     }
-                    Spacer(minLength: 4)
-                    Text(selectedSnapshot?.mood?.title ?? "未记录")
-                        .roundedFont(10, weight: .medium)
-                        .foregroundStyle(BodyEditorial.muted)
-                }
-                .padding(.top, 12)
-            }
-        }
-        .padding(.horizontal, 3)
-    }
-
-    private func metrics(_ snapshot: InBodySnapshot) -> some View {
-        VStack(alignment: .leading, spacing: 11) {
-            HStack(alignment: .lastTextBaseline) {
-                Text("本次数据")
-                    .roundedFont(19, weight: .heavy)
-                    .foregroundStyle(BodyEditorial.ink)
-                Spacer()
-                Text("已填写 \(Int(snapshot.completeness * 6)) / 6 项")
-                    .roundedFont(10, weight: .medium)
-                    .foregroundStyle(BodyEditorial.muted)
-            }
-
-            LazyVGrid(
-                columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)],
-                spacing: 10
-            ) {
-                BodyMetricCard(title: "体重", value: format(snapshot.weightKg, suffix: " kg"), tint: BodyEditorial.blush)
-                BodyMetricCard(title: "体脂率", value: format(snapshot.bodyFatPercentage, suffix: " %"), tint: BodyEditorial.blue)
-                BodyMetricCard(title: "骨骼肌", value: format(snapshot.skeletalMuscleKg, suffix: " kg"), tint: BodyEditorial.sage)
-                BodyMetricCard(title: "BMI", value: format(snapshot.bmi), tint: BodyEditorial.muted)
-                BodyMetricCard(title: "内脏脂肪", value: format(snapshot.visceralFatLevel), tint: BodyEditorial.blush)
-                BodyMetricCard(title: "评分", value: format(snapshot.score, decimals: 0), tint: BodyEditorial.blue)
-            }
-        }
-    }
-
-    private func assessment(_ snapshot: InBodySnapshot) -> some View {
-        let result = store.assessment(for: snapshot)
-        return VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .center, spacing: 10) {
-                Image(systemName: result.status == .attention ? "exclamationmark.triangle.fill" : "sparkles")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(result.status == .attention ? BodyEditorial.blush : BodyEditorial.sage)
-                    .frame(width: 34, height: 34)
-                    .background(BodyEditorial.blueWash, in: Circle())
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("阶段评价")
+                    Text(isRecognizing ? "分析中" : "上传")
                         .roundedFont(11, weight: .bold)
-                        .foregroundStyle(BodyEditorial.muted)
-                    Text(result.headline)
-                        .roundedFont(19, weight: .heavy)
                         .foregroundStyle(BodyEditorial.ink)
                 }
-                Spacer()
-                Text(result.status.title)
-                    .roundedFont(10, weight: .bold)
-                    .foregroundStyle(BodyEditorial.ink)
-                    .padding(.horizontal, 10)
-                    .frame(height: 25)
-                    .background(BodyEditorial.blueWash, in: Capsule())
-            }
-
-            Text(result.summary)
-                .roundedFont(12, weight: .medium)
-                .foregroundStyle(BodyEditorial.ink)
-                .lineSpacing(4)
-                .padding(.top, 15)
-
-            if !result.highlights.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    ForEach(result.highlights, id: \.self) { item in
-                        Label(item, systemImage: "checkmark")
-                            .roundedFont(11, weight: .medium)
-                            .foregroundStyle(BodyEditorial.ink)
-                    }
+                .padding(.horizontal, 11)
+                .frame(height: 46)
+                .background(
+                    LinearGradient(
+                        colors: [Color.white, BodyEditorial.blueWash.opacity(0.78)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                )
+                .overlay {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(
+                            LinearGradient(
+                                colors: [BodyEditorial.blue.opacity(0.42), BodyEditorial.blush.opacity(0.30)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
                 }
-                .padding(.top, 12)
+                .shadow(color: BodyEditorial.blue.opacity(0.14), radius: 10, y: 5)
             }
-
-            if !result.recommendations.isEmpty {
-                Text(result.recommendations.joined(separator: "\n"))
-                    .roundedFont(11, weight: .medium)
-                    .foregroundStyle(BodyEditorial.muted)
-                    .lineSpacing(4)
-                    .padding(.top, 12)
-            }
-
-            Text(result.disclaimer)
-                .roundedFont(9, weight: .medium)
-                .foregroundStyle(BodyEditorial.muted)
-                .padding(.top, 14)
-        }
-        .padding(17)
-        .background(BodyEditorial.blushWash.opacity(0.42), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-        .overlay(alignment: .leading) {
-            Rectangle().fill(BodyEditorial.blush).frame(width: 3)
+            .buttonStyle(.plain)
+            .disabled(isRecognizing)
+            .accessibilityLabel("上传 InBody 报告照片")
         }
     }
 
-    private func emptyState(availableHeight: CGFloat) -> some View {
-        VStack(spacing: 0) {
-            Spacer(minLength: 0)
-            BodyAvatarSceneView(snapshot: nil, previousSnapshot: nil, style: store.selectedAvatarStyle, imageData: store.avatarImageData)
-                .frame(height: emptySceneHeight(for: availableHeight))
-                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            Text("还没有 InBody 记录")
-                .roundedFont(21, weight: .heavy)
+    private var analysisStatus: some View {
+        HStack(spacing: 10) {
+            if isRecognizing {
+                ProgressView()
+                    .controlSize(.small)
+                    .tint(BodyEditorial.blue)
+            } else {
+                Image(systemName: analysisStatusIsError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
+                    .foregroundStyle(analysisStatusIsError ? BodyEditorial.blush : BodyEditorial.sage)
+            }
+            Text(statusMessage)
+                .roundedFont(11, weight: .medium)
                 .foregroundStyle(BodyEditorial.ink)
-                .padding(.top, 18)
-            Text("使用右上角扫描或录入，开始记录第一份数据")
-                .roundedFont(12, weight: .medium)
-                .foregroundStyle(BodyEditorial.muted)
-                .padding(.top, 7)
-            if !statusMessage.isEmpty {
-                Text(statusMessage)
-                    .roundedFont(10, weight: .medium)
-                    .foregroundStyle(BodyEditorial.sage)
-                    .padding(.top, 14)
-            }
-            Spacer(minLength: 0)
-            Rectangle()
-                .fill(BodyEditorial.rule)
-                .frame(height: 1)
-                .frame(maxWidth: 180)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, minHeight: availableHeight, alignment: .center)
-        .padding(.top, 8)
+        .padding(.horizontal, 13)
+        .frame(minHeight: 40)
+        .background(BodyEditorial.surface, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .stroke(BodyEditorial.rule, lineWidth: 1)
+        }
     }
 
-    private func populatedSceneHeight(for viewportHeight: CGFloat) -> CGFloat {
-        // Kitty is shown from ears to feet; reserve a taller stage so the
-        // complete silhouette has breathing room on compact iPhone screens.
-        min(500, max(420, viewportHeight * 0.52))
+    private var analysisStatusIsError: Bool {
+        statusMessage.contains("失败") || statusMessage.contains("未识别")
     }
 
-    private func emptyContentHeight(for viewportHeight: CGFloat) -> CGFloat {
-        max(620, viewportHeight - 96)
+    private var measurementSchedule: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .center, spacing: 11) {
+                Image(systemName: "calendar.badge.clock")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(BodyEditorial.gold)
+                    .frame(width: 36, height: 36)
+                    .background(BodyEditorial.gold.opacity(0.13), in: Circle())
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("定期测量")
+                        .roundedFont(16, weight: .heavy)
+                        .foregroundStyle(BodyEditorial.ink)
+                    Text(measurementScheduleText)
+                        .roundedFont(10, weight: .medium)
+                        .foregroundStyle(BodyEditorial.muted)
+                }
+
+                Spacer(minLength: 6)
+
+                Toggle("", isOn: measurementEnabledBinding)
+                    .labelsHidden()
+                    .tint(BodyEditorial.sage)
+                    .disabled(isUpdatingReminder)
+                    .accessibilityLabel("启用定期测量")
+            }
+
+            Picker("测量周期", selection: measurementIntervalBinding) {
+                ForEach(availableMeasurementIntervals) { interval in
+                    Text("\(interval.weekCount) 周").tag(interval)
+                }
+            }
+            .pickerStyle(.segmented)
+            .tint(BodyEditorial.blue)
+            .disabled(!store.measurementSchedule.isEnabled || isUpdatingReminder)
+            .opacity(store.measurementSchedule.isEnabled ? 1 : 0.48)
+            .accessibilityLabel("选择 InBody 测量周期")
+
+            if !reminderStatusMessage.isEmpty {
+                Text(reminderStatusMessage)
+                    .roundedFont(10, weight: .medium)
+                    .foregroundStyle(BodyEditorial.muted)
+            }
+        }
+        .padding(15)
+        .background(BodyEditorial.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(BodyEditorial.rule, lineWidth: 1)
+        }
     }
 
-    private func emptySceneHeight(for contentHeight: CGFloat) -> CGFloat {
-        min(620, max(480, contentHeight * 0.66))
+    private var availableMeasurementIntervals: [InBodyMeasurementInterval] {
+        InBodyMeasurementInterval.allCases.filter { [2, 4, 6, 8].contains($0.weekCount) }
     }
 
-    private func openManualEntry() {
-        reportPhotoData = nil
-        var draft = InBodyEntryDraft()
-        draft.weight = String(format: "%.1f", state.weight)
-        entryDraft = draft
-        isEntryPresented = true
+    private var measurementEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { store.measurementSchedule.isEnabled },
+            set: { isEnabled in
+                var schedule = store.measurementSchedule
+                schedule.isEnabled = isEnabled
+                updateMeasurementSchedule(schedule)
+            }
+        )
+    }
+
+    private var measurementIntervalBinding: Binding<InBodyMeasurementInterval> {
+        Binding(
+            get: { store.measurementSchedule.interval },
+            set: { interval in
+                var schedule = store.measurementSchedule
+                schedule.interval = interval
+                schedule.isEnabled = true
+                updateMeasurementSchedule(schedule)
+            }
+        )
+    }
+
+    private var measurementScheduleText: String {
+        switch store.measurementDueStatus() {
+        case .disabled:
+            return "提醒已关闭"
+        case .noMeasurements:
+            return "每 \(store.measurementSchedule.interval.weekCount) 周整理一份身体数据"
+        case .due:
+            return "已到下一次测量周期"
+        case .upcoming(let dueDate):
+            let start = Calendar.current.startOfDay(for: .now)
+            let due = Calendar.current.startOfDay(for: dueDate)
+            let days = max(0, Calendar.current.dateComponents([.day], from: start, to: due).day ?? 0)
+            return "下次建议 \(dateLabel(dueDate))，还有 \(days) 天"
+        }
+    }
+
+    private func updateMeasurementSchedule(_ schedule: InBodyMeasurementSchedule) {
+        let normalized = schedule.normalized()
+        store.updateMeasurementSchedule(normalized)
+        synchronizeMeasurementReminder(normalized)
+    }
+
+    private func synchronizeMeasurementReminder(_ schedule: InBodyMeasurementSchedule) {
+        isUpdatingReminder = true
+        reminderStatusMessage = ""
+        Task { @MainActor in
+            let applied = await onMeasurementScheduleChanged(schedule, latestSnapshot?.date)
+            isUpdatingReminder = false
+            if schedule.isEnabled, !applied {
+                var disabledSchedule = schedule
+                disabledSchedule.isEnabled = false
+                store.updateMeasurementSchedule(disabledSchedule)
+                reminderStatusMessage = "通知权限未开启，定期提醒已关闭"
+            } else if schedule.isEnabled {
+                reminderStatusMessage = latestSnapshot == nil
+                    ? "保存第一份报告后开始计算提醒"
+                    : "下一次测量提醒已更新"
+            }
+        }
     }
 
     private func recognizeReport(_ item: PhotosPickerItem?) {
@@ -483,44 +354,38 @@ struct BodyTrendView: View {
         Task {
             guard let data = try? await item.loadTransferable(type: Data.self) else {
                 await MainActor.run {
-                    statusMessage = "照片读取失败，请重试或手动录入"
+                    statusMessage = "照片读取失败，请重试"
                     reportPhotoItem = nil
                 }
                 return
             }
             await MainActor.run { reportPhotoItem = nil }
-            recognizeReportData(data)
-        }
-    }
-
-    private func recognizeReportData(_ data: Data) {
-        isRecognizing = true
-        statusMessage = "正在识别报告，请核对识别结果"
-        Task {
-            let result = await Task.detached(priority: .userInitiated) {
-                InBodyOCRService.recognize(data: data)
-            }.value
-            await MainActor.run {
+            if reportAnalyzer.requiresRemoteUploadConsent {
                 reportPhotoData = data
-                entryDraft = InBodyEntryDraft(ocr: result)
-                isRecognizing = false
-                statusMessage = result.matchedFieldCount > 0 ? "已识别 \(result.matchedFieldCount) 项，请确认后保存" : "未识别到关键数字，请手动补全"
-                isEntryPresented = true
+                isRemoteAnalysisConsentPresented = true
+            } else {
+                recognizeReportData(data, using: reportAnalyzer)
             }
         }
     }
 
-    private func loadAvatarImage(_ item: PhotosPickerItem?) {
-        guard let item else { return }
+    private func recognizeReportData(
+        _ data: Data,
+        using analyzer: AnyInBodyReportAnalyzer
+    ) {
+        isRecognizing = true
+        statusMessage = "正在分析报告，请稍候"
         Task {
-            guard let data = try? await item.loadTransferable(type: Data.self) else { return }
+            let result = await Task.detached(priority: .userInitiated) {
+                await analyzer.analyze(data: data)
+            }.value
             await MainActor.run {
-                if store.setAvatarImageData(data) {
-                    store.setAvatarStyle(.custom)
-                } else {
-                    statusMessage = "形象图片过大，请选择较小的图片"
-                }
-                avatarPhotoItem = nil
+                reportPhotoData = nil
+                reportWasUploaded = true
+                entryDraft = InBodyEntryDraft(analysis: result)
+                isRecognizing = false
+                statusMessage = result.message ?? (result.recognizedFieldCount > 0 ? "已识别 \(result.recognizedFieldCount) 项，请确认后保存" : "未识别到关键数字，请核对报告")
+                isEntryPresented = true
             }
         }
     }
@@ -531,282 +396,4 @@ struct BodyTrendView: View {
         formatter.locale = Locale(identifier: "zh_CN")
         return formatter.string(from: date)
     }
-
-    private func moodColor(_ mood: MoodLevel?) -> Color {
-        switch mood {
-        case .excellent, .good: return BodyEditorial.sage
-        case .neutral: return BodyEditorial.blue
-        case .low, .veryLow: return BodyEditorial.blush
-        case nil: return BodyEditorial.rule
-        }
-    }
-
-    private func format(_ value: Double?, suffix: String = "", decimals: Int = 1) -> String {
-        guard let value else { return "--" }
-        return String(format: "%.*f%@", decimals, value, suffix)
-    }
-}
-
-private struct InBodyEntryDraft {
-    var date = Date()
-    var weight = ""
-    var bodyFat = ""
-    var muscle = ""
-    var visceral = ""
-    var bmi = ""
-    var score = ""
-    var mood: MoodLevel?
-    var note = ""
-
-    init() {}
-
-    init(ocr: InBodyOCRResult) {
-        weight = ocr.weightKg.map { String(format: "%.1f", $0) } ?? ""
-        bodyFat = ocr.bodyFatPercent.map { String(format: "%.1f", $0) } ?? ""
-        muscle = ocr.skeletalMuscleKg.map { String(format: "%.1f", $0) } ?? ""
-        visceral = ocr.visceralFatLevel.map { String(format: "%.1f", $0) } ?? ""
-        bmi = ocr.bmi.map { String(format: "%.1f", $0) } ?? ""
-        score = ocr.score.map(String.init) ?? ""
-    }
-}
-
-private struct InBodyEntrySheet: View {
-    @ObservedObject var store: BodyTrendStore
-    let initialDraft: InBodyEntryDraft
-    let sourcePhotoData: Data?
-    let onSaved: () -> Void
-    @Environment(\.dismiss) private var dismiss
-
-    @State private var date: Date
-    @State private var weight: String
-    @State private var bodyFat: String
-    @State private var muscle: String
-    @State private var visceral: String
-    @State private var bmi: String
-    @State private var score: String
-    @State private var mood: MoodLevel?
-    @State private var note: String
-    @State private var error = ""
-
-    init(store: BodyTrendStore, initialDraft: InBodyEntryDraft, sourcePhotoData: Data?, onSaved: @escaping () -> Void) {
-        self.store = store
-        self.initialDraft = initialDraft
-        self.sourcePhotoData = sourcePhotoData
-        self.onSaved = onSaved
-        _date = State(initialValue: initialDraft.date)
-        _weight = State(initialValue: initialDraft.weight)
-        _bodyFat = State(initialValue: initialDraft.bodyFat)
-        _muscle = State(initialValue: initialDraft.muscle)
-        _visceral = State(initialValue: initialDraft.visceral)
-        _bmi = State(initialValue: initialDraft.bmi)
-        _score = State(initialValue: initialDraft.score)
-        _mood = State(initialValue: initialDraft.mood)
-        _note = State(initialValue: initialDraft.note)
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    DatePicker("测量日期", selection: $date, displayedComponents: .date)
-                    field("体重（kg）", text: $weight, required: true)
-                } header: {
-                    Text("基本数据")
-                }
-
-                Section {
-                    field("体脂率（%）", text: $bodyFat)
-                    field("骨骼肌（kg）", text: $muscle)
-                    field("内脏脂肪等级", text: $visceral)
-                    field("BMI", text: $bmi)
-                    field("InBody 评分", text: $score)
-                } header: {
-                    Text("身体成分")
-                }
-
-                Section {
-                    Picker("测量时的心情", selection: $mood) {
-                        Text("未记录").tag(MoodLevel?.none)
-                        ForEach(MoodLevel.allCases) { item in
-                            Text("\(item.emoji)  \(item.title)").tag(Optional(item))
-                        }
-                    }
-                    TextField("备注（选填）", text: $note, axis: .vertical)
-                        .lineLimit(2...4)
-                } header: {
-                    Text("当时状态")
-                }
-
-                if !error.isEmpty {
-                    Text(error)
-                        .foregroundStyle(BodyEditorial.blush)
-                        .font(.footnote)
-                }
-
-                Text("照片识别结果仅作为草稿，请核对纸面数据后保存。评价只用于健康记录参考。")
-                    .font(.footnote)
-                    .foregroundStyle(BodyEditorial.muted)
-            }
-            .navigationTitle("录入 InBody")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") { save() }
-                        .fontWeight(.bold)
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func field(_ title: String, text: Binding<String>, required: Bool = false) -> some View {
-        LabeledContent(title) {
-            TextField(required ? "必填" : "选填", text: text)
-                .multilineTextAlignment(.trailing)
-                .accessibilityLabel(title)
-                #if os(iOS)
-                .keyboardType(.decimalPad)
-                #endif
-        }
-    }
-
-    private func save() {
-        guard let weightValue = Double(weight.replacingOccurrences(of: ",", with: ".")), (20...400).contains(weightValue) else {
-            error = "请输入 20 至 400 kg 之间的体重"
-            return
-        }
-
-        let source: InBodyDataSource = sourcePhotoData == nil ? .manual : .ocr
-        let record = InBodySnapshot(
-            date: date,
-            weightKg: weightValue,
-            bodyFatPercentage: value(bodyFat),
-            skeletalMuscleKg: value(muscle),
-            bmi: value(bmi),
-            visceralFatLevel: value(visceral),
-            score: value(score),
-            mood: mood,
-            note: note,
-            source: source,
-            parserVersion: source == .ocr ? "vision-1" : nil
-        )
-
-        guard store.add(record) else {
-            error = "数据未能保存，请检查体重数值"
-            return
-        }
-        onSaved()
-        dismiss()
-    }
-
-    private func value(_ text: String) -> Double? {
-        Double(text.replacingOccurrences(of: ",", with: "."))
-    }
-}
-
-private struct MoodBadge: View {
-    let mood: MoodLevel?
-
-    var body: some View {
-        HStack(spacing: 5) {
-            Text(mood?.emoji ?? "—")
-                .font(.system(size: 13))
-            Text(mood?.title ?? "未记录心情")
-                .roundedFont(10, weight: .bold)
-        }
-        .foregroundStyle(BodyEditorial.ink)
-        .padding(.horizontal, 10)
-        .frame(height: 28)
-        .background(BodyEditorial.blushWash, in: Capsule())
-    }
-}
-
-private struct BodyMetricCard: View {
-    let title: String
-    let value: String
-    let tint: Color
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Text(title)
-                .roundedFont(10, weight: .medium)
-                .foregroundStyle(BodyEditorial.muted)
-            Text(value)
-                .roundedFont(20, weight: .heavy)
-                .foregroundStyle(tint)
-                .lineLimit(1)
-                .minimumScaleFactor(0.78)
-        }
-        .frame(maxWidth: .infinity, minHeight: 62, alignment: .leading)
-        .padding(.horizontal, 3)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(BodyEditorial.rule).frame(height: 1)
-        }
-    }
-}
-
-private struct BodyAvatarSceneView: View {
-    let snapshot: InBodySnapshot?
-    let previousSnapshot: InBodySnapshot?
-    let style: AvatarStyle
-    let imageData: Data?
-    #if canImport(SceneKit)
-    @StateObject private var sceneController: BodyAvatarSceneController
-    #endif
-
-    init(
-        snapshot: InBodySnapshot?,
-        previousSnapshot: InBodySnapshot?,
-        style: AvatarStyle,
-        imageData: Data?
-    ) {
-        self.snapshot = snapshot
-        self.previousSnapshot = previousSnapshot
-        self.style = style
-        self.imageData = imageData
-        #if canImport(SceneKit)
-        _sceneController = StateObject(
-            wrappedValue: BodyAvatarSceneController(
-                input: BodyAvatarSceneInput(
-                    snapshot: snapshot,
-                    previousSnapshot: previousSnapshot,
-                    style: style,
-                    imageData: imageData
-                )
-            )
-        )
-        #endif
-    }
-
-    var body: some View {
-        #if canImport(SceneKit)
-        SceneView(
-            scene: sceneController.scene,
-            options: [.allowsCameraControl]
-        )
-        .onChange(of: sceneInput) { _, input in
-            sceneController.update(input: input)
-        }
-        #else
-        ZStack {
-            BodyEditorial.blueWash
-            Image(systemName: style.symbolName)
-                .font(.system(size: 54, weight: .light))
-                .foregroundStyle(BodyEditorial.sage)
-        }
-        #endif
-    }
-
-    #if canImport(SceneKit)
-    private var sceneInput: BodyAvatarSceneInput {
-        BodyAvatarSceneInput(
-            snapshot: snapshot,
-            previousSnapshot: previousSnapshot,
-            style: style,
-            imageData: imageData
-        )
-    }
-    #endif
 }

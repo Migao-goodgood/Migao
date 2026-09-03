@@ -26,7 +26,8 @@ All contributors, including Codex and human collaborators, must read this file a
 ## Protected behavior
 
 - Weight records, goal weight, trend history, activities, and local persistence must keep working.
-- Weight units are fixed to `kg`.
+- Weight values are stored canonically in `kg`; user-facing weight records and
+  goals support switching between `kg` and `g` without changing history.
 - Weight above the goal uses progressively stronger red tones.
 - The iOS app and WeChat mini program are separate entry points; do not remove or replace one while editing the other.
 
