@@ -41,12 +41,9 @@ enum DietNumberText {
 }
 
 struct DietPageHeader: View {
-    let month: Date
     let totalCalories: Int
     let recordedDays: Int
-    let onPreviousMonth: () -> Void
-    let onNextMonth: () -> Void
-    let onToday: () -> Void
+    let onAdd: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -60,15 +57,7 @@ struct DietPageHeader: View {
                         .foregroundStyle(DietPalette.muted)
                 }
                 Spacer(minLength: 12)
-                ZStack {
-                    Circle()
-                        .fill(DietPalette.pinkWash)
-                        .frame(width: 44, height: 44)
-                    Image(systemName: "fork.knife")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(DietPalette.pinkDeep)
-                }
-                .accessibilityHidden(true)
+                DietAddMealButton(action: onAdd)
             }
 
             HStack(spacing: 0) {
@@ -83,6 +72,24 @@ struct DietPageHeader: View {
             .padding(.horizontal, 14)
             .background(DietPalette.lilacWash.opacity(0.55), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
+    }
+}
+
+private struct DietAddMealButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            AddMediaActionLabel(
+                systemName: "fork.knife",
+                foregroundColor: DietPalette.pinkDeep,
+                surfaceColor: DietPalette.pinkWash,
+                badgeColor: DietPalette.pink,
+                borderColor: DietPalette.paper
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("上传饮食照片")
     }
 }
 

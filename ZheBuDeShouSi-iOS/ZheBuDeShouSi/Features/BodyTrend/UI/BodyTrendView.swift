@@ -159,45 +159,18 @@ struct BodyTrendView: View {
             Spacer(minLength: 8)
 
             PhotosPicker(selection: $reportPhotoItem, matching: .images) {
-                HStack(spacing: 6) {
-                    ZStack {
-                        Circle()
-                            .fill((isRecognizing ? BodyEditorial.gold : BodyEditorial.blue).opacity(0.16))
-                            .frame(width: 30, height: 30)
-                        Image(systemName: isRecognizing ? "hourglass" : "photo.badge.plus")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(isRecognizing ? BodyEditorial.gold : BodyEditorial.blue)
-                    }
-                    Text(isRecognizing ? "分析中" : "上传")
-                        .roundedFont(11, weight: .bold)
-                        .foregroundStyle(BodyEditorial.ink)
-                }
-                .padding(.horizontal, 11)
-                .frame(height: 46)
-                .background(
-                    LinearGradient(
-                        colors: [Color.white, BodyEditorial.blueWash.opacity(0.78)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                AddMediaActionLabel(
+                    systemName: isRecognizing ? "hourglass" : "photo",
+                    foregroundColor: isRecognizing ? BodyEditorial.gold : BodyEditorial.blue,
+                    surfaceColor: isRecognizing ? BodyEditorial.gold.opacity(0.14) : BodyEditorial.blueWash,
+                    badgeColor: BodyEditorial.blue,
+                    borderColor: BodyEditorial.paper,
+                    showsBadge: !isRecognizing
                 )
-                .overlay {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(
-                            LinearGradient(
-                                colors: [BodyEditorial.blue.opacity(0.42), BodyEditorial.blush.opacity(0.30)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
-                }
-                .shadow(color: BodyEditorial.blue.opacity(0.14), radius: 10, y: 5)
             }
             .buttonStyle(.plain)
             .disabled(isRecognizing)
-            .accessibilityLabel("上传 InBody 报告照片")
+            .accessibilityLabel(isRecognizing ? "正在分析 InBody 报告" : "上传 InBody 报告照片")
         }
     }
 

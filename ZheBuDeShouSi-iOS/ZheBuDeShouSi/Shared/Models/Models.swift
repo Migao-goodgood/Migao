@@ -8,11 +8,11 @@ enum AppTab: String, CaseIterable {
     case mine = "我的"
 }
 
-/// User-facing weight units. Values are stored canonically in kilograms so
-/// changing the display unit never changes historical measurements.
+/// User-facing body-weight units. Values are stored canonically in kilograms
+/// so changing the display unit never changes historical measurements.
 enum WeightUnit: String, Codable, CaseIterable, Identifiable {
-    case kilograms = "kg"
-    case grams = "g"
+    case kilograms = "公斤"
+    case jin = "斤"
 
     static let minimumKilograms = 20.0
     static let maximumKilograms = 300.0
@@ -21,15 +21,27 @@ enum WeightUnit: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     var displayMultiplier: Double {
-        self == .kilograms ? 1 : 1_000
+        self == .kilograms ? 1 : 2
     }
 
     var displayDecimals: Int {
-        self == .kilograms ? 1 : 0
+        1
     }
 
     var tickCount: Int {
         Int(((Self.maximumKilograms - Self.minimumKilograms) / Self.stepKilograms).rounded()) + 1
+    }
+
+    var rulerMajorTickInterval: Int {
+        self == .kilograms ? 10 : 5
+    }
+
+    func isMajorRulerTick(_ index: Int) -> Bool {
+        index.isMultiple(of: rulerMajorTickInterval)
+    }
+
+    func isMediumRulerTick(_ index: Int) -> Bool {
+        self == .kilograms && !isMajorRulerTick(index) && index.isMultiple(of: 5)
     }
 
     func displayValue(fromKilograms kilograms: Double) -> Double {
@@ -67,8 +79,30 @@ enum WeightUnit: String, Codable, CaseIterable, Identifiable {
 
     func rulerLabel(forTick index: Int) -> String {
         let kilograms = kilograms(forTick: index)
-        if self == .kilograms { return String(format: "%.0f", kilograms) }
-        return formattedValue(fromKilograms: kilograms)
+        return String(format: "%.0f", displayValue(fromKilograms: kilograms))
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let storedValue = try container.decode(String.self)
+        switch storedValue.lowercased() {
+        case "kg", "kilograms", "公斤":
+            self = .kilograms
+        case "g", "grams", "jin", "斤":
+            // Older snapshots used `g`; the user's selected secondary unit
+            // migrates to the new secondary display without touching weights.
+            self = .jin
+        default:
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Unsupported stored weight unit: \(storedValue)"
+            )
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(self == .kilograms ? "kg" : "jin")
     }
 }
 
@@ -125,7 +159,7 @@ enum RecordType: String, Codable, CaseIterable {
         case .meal: return "kcal"
         case .water: return "ml"
         case .sport: return "分钟"
-        case .weight: return "kg"
+        case .weight: return "公斤"
         }
     }
 
@@ -263,7 +297,7 @@ final class AppState: ObservableObject {
     @discardableResult
     func updateGoalWeight(_ value: Double) -> Bool {
         guard value.isFinite, Self.goalWeightRange.contains(value) else { return false }
-        goalWeight = (value * 10).rounded() / 10
+        goalWeight = (value / WeightUnit.stepKilograms).rounded() * WeightUnit.stepKilograms
         save()
         return true
     }
@@ -282,15 +316,16 @@ final class AppState: ObservableObject {
         guard value.isFinite, Self.goalWeightRange.contains(value) else { return }
 
         let calendar = Calendar.current
+        let normalizedValue = (value / WeightUnit.stepKilograms).rounded() * WeightUnit.stepKilograms
         let previous = records
             .filter { $0.date < date }
             .max(by: { $0.date < $1.date })
-        let difference = value - (previous?.weight ?? weight)
+        let difference = normalizedValue - (previous?.weight ?? weight)
         let cleanedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
         records.append(
             WeightRecord(
                 date: date,
-                weight: (value * 10).rounded() / 10,
+                weight: normalizedValue,
                 note: cleanedNote.isEmpty ? "刚刚记录" : cleanedNote,
                 change: difference
             )
@@ -313,7 +348,7 @@ final class AppState: ObservableObject {
                 kind: .weight,
                 title: "体重记录",
                 date: date,
-                amount: weightUnit.formatted(fromKilograms: value),
+                amount: weightUnit.formatted(fromKilograms: normalizedValue),
                 note: cleanedNote.isEmpty ? timeLabel(for: date, calendar: calendar) : cleanedNote
             ),
             at: 0

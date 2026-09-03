@@ -295,53 +295,15 @@ private struct HomePlanCard: View {
                 }
             }
 
-            HStack(alignment: .lastTextBaseline, spacing: 5) {
-                Text(state.weightUnit.formattedValue(fromKilograms: state.weight))
-                    .roundedFont(43, weight: .heavy)
-                    .foregroundStyle(state.weightTone(state.weight))
-                    .monospacedDigit()
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.62)
-                Text(state.weightUnit.rawValue)
-                    .roundedFont(13, weight: .bold)
-                    .foregroundStyle(Color.waterAccent)
-                Text("今日体重")
-                    .roundedFont(12, weight: .medium)
-                    .foregroundStyle(Color.platinumDeep)
-                    .padding(.leading, 4)
-                Spacer(minLength: 12)
-                Button(action: onEditGoal) {
-                    VStack(alignment: .trailing, spacing: 3) {
-                        Text("目标体重")
-                            .roundedFont(11, weight: .medium)
-                            .foregroundStyle(Color.platinumDeep)
-                        HStack(alignment: .lastTextBaseline, spacing: 3) {
-                            Text(state.weightUnit.formattedValue(fromKilograms: state.goalWeight))
-                                .roundedFont(25, weight: .heavy)
-                                .foregroundStyle(Color.ink)
-                                .monospacedDigit()
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.62)
-                            Text(state.weightUnit.rawValue)
-                                .roundedFont(11, weight: .bold)
-                                .foregroundStyle(Color.platinumDeep)
-                        }
-                    }
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("编辑目标体重")
-            }
-            .padding(.top, 24)
-
             HomeProgressRail(
-                progress: state.goalProgress,
                 startWeight: state.startWeight,
                 currentWeight: state.weight,
                 endWeight: state.goalWeight,
                 currentTone: state.weightTone(state.weight),
-                unit: state.weightUnit
+                unit: state.weightUnit,
+                onEditGoal: onEditGoal
             )
-                .padding(.top, 22)
+                .padding(.top, 28)
 
         }
         .padding(.horizontal, 20)
@@ -362,93 +324,112 @@ private struct HomePlanCard: View {
 }
 
 private struct HomeProgressRail: View {
-    let progress: Double
     let startWeight: Double
     let currentWeight: Double
     let endWeight: Double
     let currentTone: Color
     let unit: WeightUnit
+    let onEditGoal: () -> Void
 
     var body: some View {
-        VStack(spacing: 7) {
+        VStack(spacing: 0) {
+            HStack(alignment: .lastTextBaseline, spacing: 0) {
+                progressValue(startWeight, color: Color.platinumDeep, alignment: .bottomLeading)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("起始体重")
+                    .accessibilityValue(unit.formatted(fromKilograms: startWeight))
+                progressValue(currentWeight, color: currentTone, alignment: .bottom, isEmphasized: true)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("当前体重")
+                    .accessibilityValue(unit.formatted(fromKilograms: currentWeight))
+                Button(action: onEditGoal) {
+                    progressValue(endWeight, color: Color.ink, alignment: .bottomTrailing)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .bottomTrailing)
+                .contentShape(Rectangle())
+                .accessibilityLabel("编辑目标体重")
+                .accessibilityValue(unit.formatted(fromKilograms: endWeight))
+                .accessibilityHint("双击打开目标体重选择器")
+            }
+            .padding(.horizontal, 1)
+
             GeometryReader { proxy in
-                let clamped = min(1, max(0, progress))
-                let width = max(0, proxy.size.width - 14)
-                let markerOffset = width * clamped
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Color.platinumLight)
-                    Capsule()
+                let trackY = proxy.size.height / 2
+                ZStack {
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
                         .fill(LinearGradient(colors: [Color.jellyPink, Color.jellyBlue], startPoint: .leading, endPoint: .trailing))
-                        .frame(width: max(16, markerOffset + 14))
-                    Circle()
-                        .fill(Color.ink)
-                        .frame(width: 14, height: 14)
-                        .overlay(Circle().stroke(.white, lineWidth: 2))
-                        .offset(x: markerOffset)
+                        .frame(height: 12)
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .stroke(Color.white.opacity(0.78), lineWidth: 1)
+                        }
+
+                    railTick(color: Color.platinumDeep.opacity(0.48))
+                        .position(x: 1, y: trackY)
+                    railTick(color: currentTone)
+                        .position(x: proxy.size.width / 2, y: trackY)
+                    railTick(color: Color.platinumDeep.opacity(0.48))
+                        .position(x: max(1, proxy.size.width - 1), y: trackY)
                 }
             }
-            .frame(height: 14)
-
-            HStack(alignment: .top, spacing: 0) {
-                progressLabel(title: "起点", value: startWeight, color: Color.platinumDeep)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                progressLabel(title: "当前", value: currentWeight, color: currentTone)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                progressLabel(title: "终点", value: endWeight, color: Color.platinumDeep)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-            }
+            .frame(height: 24)
+            .padding(.top, 4)
 
             segmentAnnotations
+                .padding(.top, 1)
         }
-        .frame(minHeight: 92)
+        .frame(minHeight: 88)
     }
 
-    private func progressLabel(title: String, value: Double, color: Color) -> some View {
-        VStack(spacing: 2) {
-            Text(title)
-                .roundedFont(9, weight: .medium)
-                .foregroundStyle(Color.platinumDeep)
-            Text(unit.formatted(fromKilograms: value))
-                .roundedFont(11, weight: .bold)
-                .foregroundStyle(color)
+    private func progressValue(
+        _ value: Double,
+        color: Color,
+        alignment: Alignment,
+        isEmphasized: Bool = false
+    ) -> some View {
+        HStack(alignment: .lastTextBaseline, spacing: 3) {
+            Text(unit.formattedValue(fromKilograms: value))
+                .roundedFont(isEmphasized ? 19 : 13, weight: isEmphasized ? .heavy : .bold)
                 .monospacedDigit()
                 .lineLimit(1)
-                .minimumScaleFactor(0.8)
+                .minimumScaleFactor(0.62)
+            Text(unit.rawValue)
+                .roundedFont(isEmphasized ? 11 : 9, weight: .bold)
+                .lineLimit(1)
         }
+        .foregroundStyle(color)
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: alignment)
+    }
+
+    private func railTick(color: Color) -> some View {
+        Capsule()
+            .fill(color)
+            .frame(width: 2, height: 22)
     }
 
     private var segmentAnnotations: some View {
-        GeometryReader { proxy in
-            let totalWidth = max(1, proxy.size.width)
-            let split = min(1, max(0, progress))
-            let leftWidth = totalWidth * split
-            let rightWidth = totalWidth - leftWidth
-            let shouldBalance = min(leftWidth, rightWidth) < 104
-            let firstWidth = shouldBalance ? totalWidth / 2 : max(1, leftWidth)
-            let secondWidth = shouldBalance ? totalWidth / 2 : max(1, rightWidth)
+        HStack(spacing: 0) {
+            SegmentWeightAnnotation(
+                title: "已减",
+                amount: abs(currentWeight - startWeight),
+                color: Color.mintGreen,
+                unit: unit,
+                isDashed: false
+            )
+            .frame(maxWidth: .infinity)
 
-            HStack(spacing: 0) {
-                SegmentWeightAnnotation(
-                    title: "已减",
-                    amount: abs(currentWeight - startWeight),
-                    color: Color.mintGreen,
-                    unit: unit,
-                    isDashed: false
-                )
-                .frame(width: firstWidth)
-
-                SegmentWeightAnnotation(
-                    title: "距离目标体重还差",
-                    amount: abs(endWeight - currentWeight),
-                    color: Color.platinumDeep,
-                    unit: unit,
-                    isDashed: true
-                )
-                .frame(width: secondWidth)
-            }
+            SegmentWeightAnnotation(
+                title: "距离目标体重还差",
+                amount: abs(endWeight - currentWeight),
+                color: Color.platinumDeep,
+                unit: unit,
+                isDashed: true
+            )
+            .frame(maxWidth: .infinity)
         }
-        .frame(height: 34)
+        .frame(height: 39)
     }
 }
 
@@ -460,7 +441,7 @@ private struct SegmentWeightAnnotation: View {
     let isDashed: Bool
 
     var body: some View {
-        VStack(spacing: 2) {
+        VStack(spacing: 3) {
             MathUnderbrace()
                 .stroke(
                     color.opacity(isDashed ? 0.50 : 0.58),
@@ -469,16 +450,16 @@ private struct SegmentWeightAnnotation: View {
                         : StrokeStyle(lineWidth: 1.25, lineCap: .round, lineJoin: .round)
                 )
                 .padding(.horizontal, 6)
-                .frame(height: 8)
+                .frame(height: 9)
 
             Text(title)
-                .roundedFont(8, weight: .medium)
+                .roundedFont(9, weight: .medium)
                 .foregroundStyle(Color.platinumDeep)
                 .lineLimit(1)
                 .minimumScaleFactor(0.62)
 
             Text(unit.formatted(fromKilograms: amount))
-                .roundedFont(9, weight: .bold)
+                .roundedFont(10, weight: .bold)
                 .foregroundStyle(color)
                 .monospacedDigit()
                 .lineLimit(1)
@@ -1658,6 +1639,7 @@ private struct WeightUnitSettingsRow: View {
                     Text(unit.rawValue).tag(unit)
                 }
             }
+            .labelsHidden()
             .pickerStyle(.segmented)
             .tint(Color.waterAccent)
             .frame(width: 104)

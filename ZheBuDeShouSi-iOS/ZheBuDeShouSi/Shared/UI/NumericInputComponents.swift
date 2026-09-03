@@ -159,7 +159,7 @@ struct DecimalWeightPicker: View {
         whole: Binding<Int>,
         decimal: Binding<Int>,
         wholeRange: ClosedRange<Int> = 20...300,
-        unit: String = "kg",
+        unit: String = "公斤",
         prompt: String = "滑动选择数值"
     ) {
         _whole = whole
@@ -295,7 +295,8 @@ struct DecimalWeightPicker: View {
 
 /// A compact ruler-style picker shared by the daily and goal weight surfaces.
 /// The stored binding remains kilograms while the ruler follows the selected
-/// display unit and keeps the same 100 g (0.1 kg) precision.
+/// display unit while retaining the canonical 0.1 公斤 precision. In 斤 this
+/// becomes a 0.2 斤 step, keeping every one-decimal conversion exact.
 struct WeightRulerPicker: View {
     @Binding var kilograms: Double
     @Binding var unit: WeightUnit
@@ -337,6 +338,7 @@ struct WeightRulerPicker: View {
                         Text(option.rawValue).tag(option)
                     }
                 }
+                .labelsHidden()
                 .pickerStyle(.segmented)
                 .tint(Color.waterAccent)
                 .frame(width: 112)
@@ -414,9 +416,9 @@ struct WeightRulerPicker: View {
                     let distance = CGFloat(index - currentIndex) + fractionalOffset
                     let x = center + distance * tickSpacing
                     WeightRulerTick(
-                        isMajor: index.isMultiple(of: 10),
-                        isMedium: index.isMultiple(of: 5),
-                        label: index.isMultiple(of: 10) ? unit.rulerLabel(forTick: index) : nil
+                        isMajor: unit.isMajorRulerTick(index),
+                        isMedium: unit.isMediumRulerTick(index),
+                        label: unit.isMajorRulerTick(index) ? unit.rulerLabel(forTick: index) : nil
                     )
                     .position(x: x, y: 65)
                     .allowsHitTesting(false)

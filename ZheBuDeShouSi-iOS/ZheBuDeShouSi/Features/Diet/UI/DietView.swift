@@ -139,32 +139,11 @@ struct DietView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .top, spacing: 12) {
-            DietPageHeader(
-                month: month,
-                totalCalories: Int(monthSummaries.reduce(0) { $0 + $1.totalCaloriesKcal }.rounded()),
-                recordedDays: monthSummaries.filter(\.hasMeals).count,
-                onPreviousMonth: { shiftMonth(by: -1) },
-                onNextMonth: { shiftMonth(by: 1) },
-                onToday: jumpToToday
-            )
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            Button { beginUpload(for: selectedDate) } label: {
-                ZStack {
-                    Circle()
-                        .fill(DietPalette.pink)
-                        .frame(width: 46, height: 46)
-                    Image(systemName: "plus")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundStyle(.white)
-                }
-                .shadow(color: DietPalette.pink.opacity(0.25), radius: 10, y: 5)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("上传饮食照片")
-            .padding(.top, 2)
-        }
+        DietPageHeader(
+            totalCalories: Int(monthSummaries.reduce(0) { $0 + $1.totalCaloriesKcal }.rounded()),
+            recordedDays: monthSummaries.filter(\.hasMeals).count,
+            onAdd: { beginUpload(for: selectedDate) }
+        )
     }
 
     private var monthCaption: some View {

@@ -54,49 +54,76 @@ enum WeightCalendarService {
 
 enum WeightCalendarColorMapper {
     struct Style {
+        let tone: Color
         let fillOpacity: Double
         let borderOpacity: Double
         let textOpacity: Double
     }
 
-    static func style(for delta: Double?) -> Style {
-        guard let delta else {
-            return Style(fillOpacity: 0.13, borderOpacity: 0.22, textOpacity: 0.86)
-        }
+    static func style(
+        weight: Double,
+        startWeight: Double,
+        goalWeight: Double,
+        delta: Double?
+    ) -> Style {
+        let lowerReference = min(startWeight, goalWeight)
+        let upperReference = max(startWeight, goalWeight)
+        let referenceSpan = max(1, upperReference - lowerReference)
+        let basePosition = clamp((weight - lowerReference) / referenceSpan)
+        let dailyShift = clamp((delta ?? 0) / 1.5, lower: -1, upper: 1) * 0.18
+        let position = clamp(basePosition + dailyShift)
+        let overflow = clamp((weight - upperReference) / max(3, referenceSpan * 0.45))
 
-        let magnitude = min(1, abs(delta) / 2.0)
-        if delta > 0.05 {
-            // Rising weight becomes visibly deeper without changing the
-            // absolute goal-relative hue supplied by AppState.weightTone.
-            return Style(
-                fillOpacity: 0.19 + magnitude * 0.22,
-                borderOpacity: 0.34 + magnitude * 0.34,
-                textOpacity: 0.86 + magnitude * 0.14
-            )
+        let blue = RGB(red: 112, green: 200, blue: 218)
+        let pink = RGB(red: 245, green: 141, blue: 174)
+        let deepPink = RGB(red: 217, green: 79, blue: 112)
+        let gradientTone = interpolate(from: blue, to: pink, amount: position)
+        let tone = interpolate(from: gradientTone, to: deepPink, amount: overflow)
+        let riseMagnitude = max(0, clamp((delta ?? 0) / 1.5))
+
+        return Style(
+            tone: tone.color,
+            fillOpacity: 0.10 + position * 0.24 + overflow * 0.08 + riseMagnitude * 0.05,
+            borderOpacity: 0.18 + position * 0.30 + overflow * 0.12,
+            textOpacity: 0.76 + position * 0.18 + overflow * 0.06
+        )
+    }
+
+    private struct RGB {
+        let red: Double
+        let green: Double
+        let blue: Double
+
+        var color: Color {
+            Color(red: red / 255, green: green / 255, blue: blue / 255)
         }
-        if delta < -0.05 {
-            // Falling weight fades toward the paper background.
-            return Style(
-                fillOpacity: max(0.07, 0.16 - magnitude * 0.08),
-                borderOpacity: max(0.14, 0.25 - magnitude * 0.08),
-                textOpacity: max(0.64, 0.86 - magnitude * 0.20)
-            )
-        }
-        return Style(fillOpacity: 0.13, borderOpacity: 0.22, textOpacity: 0.86)
+    }
+
+    private static func interpolate(from start: RGB, to end: RGB, amount: Double) -> RGB {
+        let value = clamp(amount)
+        return RGB(
+            red: start.red + (end.red - start.red) * value,
+            green: start.green + (end.green - start.green) * value,
+            blue: start.blue + (end.blue - start.blue) * value
+        )
+    }
+
+    private static func clamp(_ value: Double, lower: Double = 0, upper: Double = 1) -> Double {
+        min(upper, max(lower, value))
     }
 }
 
-/// Shared horizontal title matching the trend page's four-character heading.
+/// Shared compact title matching the hierarchy of the InBody latest summary.
 /// Both home weight modules use this component so typography stays aligned.
 struct WeightModuleTitle: View {
     let title: String
 
     var body: some View {
         Text(title)
-            .roundedFont(28, weight: .heavy)
+            .roundedFont(19, weight: .heavy)
             .foregroundStyle(Color.inkSoft)
             .lineLimit(1)
-            .minimumScaleFactor(0.78)
+            .minimumScaleFactor(0.85)
     }
 }
 
@@ -272,7 +299,8 @@ struct WeightCalendarView: View {
                     WeightCalendarDayCell(
                         date: date,
                         summary: summariesByDay[calendar.startOfDay(for: date)],
-                        weightTone: state.weightTone,
+                        startWeight: state.startWeight,
+                        goalWeight: state.goalWeight,
                         unit: state.weightUnit,
                         calendar: calendar
                     )
@@ -301,7 +329,8 @@ struct WeightCalendarView: View {
 private struct WeightCalendarDayCell: View {
     let date: Date
     let summary: WeightDaySummary?
-    let weightTone: (Double) -> Color
+    let startWeight: Double
+    let goalWeight: Double
     let unit: WeightUnit
     let calendar: Calendar
 
@@ -310,12 +339,16 @@ private struct WeightCalendarDayCell: View {
     }
 
     private var tone: Color {
-        guard let summary else { return Color.platinumDeep }
-        return weightTone(summary.representative.weight)
+        summary == nil ? Color.platinumDeep : style.tone
     }
 
     private var style: WeightCalendarColorMapper.Style {
-        WeightCalendarColorMapper.style(for: summary?.deltaFromPreviousRecordedDay)
+        WeightCalendarColorMapper.style(
+            weight: summary?.representative.weight ?? goalWeight,
+            startWeight: startWeight,
+            goalWeight: goalWeight,
+            delta: summary?.deltaFromPreviousRecordedDay
+        )
     }
 
     var body: some View {
@@ -326,10 +359,10 @@ private struct WeightCalendarDayCell: View {
 
             if let summary {
                 Text(unit.formattedValue(fromKilograms: summary.representative.weight))
-                    .roundedFont(unit == .grams ? 11 : 17, weight: .heavy)
+                    .roundedFont(17, weight: .heavy)
                     .foregroundStyle(tone.opacity(style.textOpacity))
                     .monospacedDigit()
-                    .minimumScaleFactor(unit == .grams ? 0.78 : 0.55)
+                    .minimumScaleFactor(0.55)
                     .lineLimit(1)
             } else {
                 Text(" ")
