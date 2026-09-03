@@ -30,6 +30,9 @@ All contributors, including Codex and human collaborators, must read this file a
   records and goals support switching between 公斤 and 斤 (`1 公斤 = 2 斤`)
   without changing history. Legacy `kg/g` preferences must remain decodable.
 - Weight above the goal uses progressively stronger red tones.
+- The home weight rail and weight calendar share `WeightJourneyPalette`: the
+  starting point is pink, the goal is blue, and daily deltas may change visual
+  intensity but must not shift a weight to a different gradient hue.
 - Production stores must start empty on a fresh install. Demo measurements,
   meals, activities, and goals belong only to isolated `#if DEBUG` previews or
   tests and must never be seeded by the app composition root.

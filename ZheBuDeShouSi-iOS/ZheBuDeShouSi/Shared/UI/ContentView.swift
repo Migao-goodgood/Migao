@@ -426,7 +426,7 @@ private struct HomeProgressRail: View {
                 let trackY = proxy.size.height / 2
                 ZStack {
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(LinearGradient(colors: [Color.jellyPink, Color.jellyBlue], startPoint: .leading, endPoint: .trailing))
+                        .fill(WeightJourneyPalette.gradient)
                         .frame(height: 12)
                         .overlay {
                             RoundedRectangle(cornerRadius: 6, style: .continuous)

@@ -485,6 +485,67 @@ final class AppState: ObservableObject {
     }
 }
 
+/// The single color scale shared by the home journey rail and weight calendar.
+/// Position zero is always the recorded starting point (pink), while position
+/// one is always the configured goal (blue), regardless of numeric direction.
+enum WeightJourneyPalette {
+    private struct RGB {
+        let red: Double
+        let green: Double
+        let blue: Double
+
+        var color: Color {
+            Color(red: red / 255, green: green / 255, blue: blue / 255)
+        }
+    }
+
+    private static let startRGB = RGB(red: 245, green: 141, blue: 174)
+    private static let goalRGB = RGB(red: 112, green: 200, blue: 218)
+    private static let inkRGB = RGB(red: 51, green: 44, blue: 56)
+
+    static let startColor = startRGB.color
+    static let goalColor = goalRGB.color
+
+    static var gradient: LinearGradient {
+        LinearGradient(colors: [startColor, goalColor], startPoint: .leading, endPoint: .trailing)
+    }
+
+    static func position(weight: Double, startWeight: Double, goalWeight: Double) -> Double {
+        guard weight.isFinite, startWeight.isFinite, goalWeight.isFinite else { return 0.5 }
+        let span = goalWeight - startWeight
+        guard abs(span) > 0.000_1 else {
+            return weight <= goalWeight + WeightUnit.stepKilograms / 2 ? 1 : 0
+        }
+        return clamp((weight - startWeight) / span)
+    }
+
+    static func tone(weight: Double, startWeight: Double, goalWeight: Double) -> Color {
+        tone(at: position(weight: weight, startWeight: startWeight, goalWeight: goalWeight))
+    }
+
+    static func textTone(weight: Double, startWeight: Double, goalWeight: Double) -> Color {
+        let value = position(weight: weight, startWeight: startWeight, goalWeight: goalWeight)
+        return interpolate(from: interpolate(from: startRGB, to: goalRGB, amount: value), to: inkRGB, amount: 0.45).color
+    }
+
+    private static func tone(at position: Double) -> Color {
+        interpolate(from: startRGB, to: goalRGB, amount: position).color
+    }
+
+    private static func interpolate(from start: RGB, to end: RGB, amount: Double) -> RGB {
+        let value = clamp(amount)
+        return RGB(
+            red: start.red + (end.red - start.red) * value,
+            green: start.green + (end.green - start.green) * value,
+            blue: start.blue + (end.blue - start.blue) * value
+        )
+    }
+
+    private static func clamp(_ value: Double) -> Double {
+        min(1, max(0, value))
+    }
+}
+
 extension Color {
     static let pagePink = Color(hex: "FFF8FA")
     static let panelPink = Color(hex: "FFE7EF")
@@ -503,8 +564,8 @@ extension Color {
     static let platinumPale = Color(hex: "FFF8FA")
     static let waterAccent = Color(hex: "63B7D0")
     static let waterAccentPale = Color(hex: "E3F6FA")
-    static let jellyPink = Color(hex: "F58DAE")
-    static let jellyBlue = Color(hex: "70C8DA")
+    static let jellyPink = WeightJourneyPalette.startColor
+    static let jellyBlue = WeightJourneyPalette.goalColor
     static let jellyMint = Color(hex: "7FD1B7")
 
     init(hex: String) {

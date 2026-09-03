@@ -55,9 +55,9 @@ enum WeightCalendarService {
 enum WeightCalendarColorMapper {
     struct Style {
         let tone: Color
+        let textTone: Color
         let fillOpacity: Double
         let borderOpacity: Double
-        let textOpacity: Double
     }
 
     static func style(
@@ -69,42 +69,24 @@ enum WeightCalendarColorMapper {
         let lowerReference = min(startWeight, goalWeight)
         let upperReference = max(startWeight, goalWeight)
         let referenceSpan = max(1, upperReference - lowerReference)
-        let basePosition = clamp((weight - lowerReference) / referenceSpan)
-        let dailyShift = clamp((delta ?? 0) / 1.5, lower: -1, upper: 1) * 0.18
-        let position = clamp(basePosition + dailyShift)
+        let heaviness = clamp((weight - lowerReference) / referenceSpan)
         let overflow = clamp((weight - upperReference) / max(3, referenceSpan * 0.45))
-
-        let blue = RGB(red: 112, green: 200, blue: 218)
-        let pink = RGB(red: 245, green: 141, blue: 174)
-        let deepPink = RGB(red: 217, green: 79, blue: 112)
-        let gradientTone = interpolate(from: blue, to: pink, amount: position)
-        let tone = interpolate(from: gradientTone, to: deepPink, amount: overflow)
         let riseMagnitude = max(0, clamp((delta ?? 0) / 1.5))
+        let tone = WeightJourneyPalette.tone(
+            weight: weight,
+            startWeight: startWeight,
+            goalWeight: goalWeight
+        )
 
         return Style(
-            tone: tone.color,
-            fillOpacity: 0.10 + position * 0.24 + overflow * 0.08 + riseMagnitude * 0.05,
-            borderOpacity: 0.18 + position * 0.30 + overflow * 0.12,
-            textOpacity: 0.76 + position * 0.18 + overflow * 0.06
-        )
-    }
-
-    private struct RGB {
-        let red: Double
-        let green: Double
-        let blue: Double
-
-        var color: Color {
-            Color(red: red / 255, green: green / 255, blue: blue / 255)
-        }
-    }
-
-    private static func interpolate(from start: RGB, to end: RGB, amount: Double) -> RGB {
-        let value = clamp(amount)
-        return RGB(
-            red: start.red + (end.red - start.red) * value,
-            green: start.green + (end.green - start.green) * value,
-            blue: start.blue + (end.blue - start.blue) * value
+            tone: tone,
+            textTone: WeightJourneyPalette.textTone(
+                weight: weight,
+                startWeight: startWeight,
+                goalWeight: goalWeight
+            ),
+            fillOpacity: min(0.46, 0.24 + heaviness * 0.12 + overflow * 0.07 + riseMagnitude * 0.03),
+            borderOpacity: min(0.58, 0.34 + heaviness * 0.12 + overflow * 0.08)
         )
     }
 
@@ -362,7 +344,7 @@ private struct WeightCalendarDayCell: View {
             if let summary {
                 Text(unit.formattedValue(fromKilograms: summary.representative.weight))
                     .roundedFont(17, weight: .heavy)
-                    .foregroundStyle(tone.opacity(style.textOpacity))
+                    .foregroundStyle(style.textTone)
                     .monospacedDigit()
                     .minimumScaleFactor(0.55)
                     .lineLimit(1)
