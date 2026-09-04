@@ -33,9 +33,19 @@ All contributors, including Codex and human collaborators, must read this file a
 - The home weight rail and weight calendar share `WeightJourneyPalette`: the
   starting point is pink, the goal is blue, and daily deltas may change visual
   intensity but must not shift a weight to a different gradient hue.
+- The weight and diet month grids share `JournalCalendarStyle`: Monday-first
+  weekdays, fixed seven-column geometry, rounded cells, spacing, outer surface,
+  empty-state treatment, and selection emphasis stay aligned; feature data may
+  supply its own fill color.
+- Top-right journal add actions share `JournalAddActionButton`; features may
+  choose their icon and theme colors, but circle geometry, corner badge, hit
+  area, and accessibility labeling stay consistent.
 - Production stores must start empty on a fresh install. Demo measurements,
   meals, activities, and goals belong only to isolated `#if DEBUG` previews or
   tests and must never be seeded by the app composition root.
+- Diet record edits must preserve the original record identity and media.
+  Deletion requires confirmation, and deleted external HealthKit samples must
+  not be silently re-imported on the next sync.
 - The iOS app and WeChat mini program are separate entry points; do not remove or replace one while editing the other.
 
 ## Git and release policy

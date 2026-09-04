@@ -49,3 +49,30 @@ struct AddMediaActionLabel: View {
         .shadow(color: badgeColor.opacity(0.18), radius: 9, y: 4)
     }
 }
+
+/// Shared top-right action used by the diet and weight journals. The feature
+/// supplies its icon and colors, while shape, badge placement, hit area, and
+/// accessibility behavior stay identical.
+struct JournalAddActionButton: View {
+    let systemName: String
+    let foregroundColor: Color
+    let surfaceColor: Color
+    let badgeColor: Color
+    let borderColor: Color
+    let accessibilityLabel: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            AddMediaActionLabel(
+                systemName: systemName,
+                foregroundColor: foregroundColor,
+                surfaceColor: surfaceColor,
+                badgeColor: badgeColor,
+                borderColor: borderColor
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabel)
+    }
+}

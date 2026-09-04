@@ -79,17 +79,15 @@ private struct DietAddMealButton: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            AddMediaActionLabel(
-                systemName: "fork.knife",
-                foregroundColor: DietPalette.pinkDeep,
-                surfaceColor: DietPalette.pinkWash,
-                badgeColor: DietPalette.pink,
-                borderColor: DietPalette.paper
-            )
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("上传饮食照片")
+        JournalAddActionButton(
+            systemName: "fork.knife",
+            foregroundColor: DietPalette.pinkDeep,
+            surfaceColor: DietPalette.pinkWash,
+            badgeColor: DietPalette.pink,
+            borderColor: DietPalette.paper,
+            accessibilityLabel: "上传饮食照片",
+            action: action
+        )
     }
 }
 
@@ -193,21 +191,20 @@ struct DietMonthCalendar: View {
     @Binding var selectedDate: Date
     let onSelectDate: (Date) -> Void
 
-    private let calendar = Calendar.current
-    private let weekdaySymbols = ["一", "二", "三", "四", "五", "六", "日"]
+    private let calendar = JournalCalendarStyle.calendar()
 
     var body: some View {
         VStack(spacing: 10) {
             HStack(spacing: 0) {
-                ForEach(weekdaySymbols, id: \.self) { symbol in
+                ForEach(JournalCalendarStyle.weekdaySymbols, id: \.self) { symbol in
                     Text(symbol)
                         .roundedFont(10, weight: .bold)
-                        .foregroundStyle(symbol == "日" ? DietPalette.pinkDeep : DietPalette.muted)
+                        .foregroundStyle(symbol == "日" ? JournalCalendarStyle.selectionAccent : Color.platinumDeep)
                         .frame(maxWidth: .infinity)
                 }
             }
 
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 7), spacing: 7) {
+            LazyVGrid(columns: JournalCalendarStyle.columns(), spacing: JournalCalendarStyle.rowSpacing) {
                 ForEach(Array(monthGrid.enumerated()), id: \.offset) { _, date in
                     if let date {
                         DietCalendarCell(
@@ -220,25 +217,18 @@ struct DietMonthCalendar: View {
                     } else {
                         Color.clear
                             .frame(maxWidth: .infinity)
-                            .aspectRatio(0.82, contentMode: .fit)
+                            .frame(height: JournalCalendarStyle.cellHeight)
                     }
                 }
             }
         }
-        .padding(14)
-        .dietSurface(radius: 20)
+        .padding(.horizontal, JournalCalendarStyle.cardHorizontalPadding)
+        .padding(.vertical, JournalCalendarStyle.cardVerticalPadding)
+        .journalCalendarSurface()
     }
 
     private var monthGrid: [Date?] {
-        guard let interval = calendar.dateInterval(of: .month, for: month) else { return [] }
-        let first = interval.start
-        let dayCount = calendar.range(of: .day, in: .month, for: first)?.count ?? 0
-        // Calendar weekday is Sunday=1. Convert to a Monday-first grid.
-        let leading = (calendar.component(.weekday, from: first) + 5) % 7
-        var dates = Array<Date?>(repeating: nil, count: leading)
-        dates += (0..<dayCount).compactMap { calendar.date(byAdding: .day, value: $0, to: first) }
-        while dates.count % 7 != 0 { dates.append(nil) }
-        return dates
+        JournalCalendarStyle.monthGrid(for: month, calendar: calendar)
     }
 
     private func summary(for date: Date) -> DietDaySummary? {
@@ -253,18 +243,18 @@ private struct DietCalendarCell: View {
     let isToday: Bool
     let onTap: () -> Void
 
-    private let calendar = Calendar.current
+    private let calendar = JournalCalendarStyle.calendar()
 
     var body: some View {
         Button(action: onTap) {
-            VStack(spacing: 3) {
+            VStack(spacing: 4) {
                 Text("\(calendar.component(.day, from: date))")
                     .roundedFont(14, weight: isToday || isSelected ? .heavy : .semibold)
                     .monospacedDigit()
                     .foregroundStyle(dayColor)
                 if let summary, summary.totalCaloriesKcal > 0 {
                     Text(DietNumberText.kcal(summary.totalCaloriesKcal))
-                        .roundedFont(8, weight: .bold)
+                        .roundedFont(10, weight: .bold)
                         .monospacedDigit()
                         .foregroundStyle(DietPalette.pinkDeep.opacity(0.85))
                         .lineLimit(1)
@@ -277,11 +267,11 @@ private struct DietCalendarCell: View {
                 }
             }
             .frame(maxWidth: .infinity)
-            .frame(minHeight: 49)
-            .background(cellBackground, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+            .frame(height: JournalCalendarStyle.cellHeight)
+            .background(cellBackground, in: RoundedRectangle(cornerRadius: JournalCalendarStyle.cellRadius, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 13, style: .continuous)
-                    .stroke(isSelected ? DietPalette.pink : .clear, lineWidth: isSelected ? 1.5 : 0)
+                RoundedRectangle(cornerRadius: JournalCalendarStyle.cellRadius, style: .continuous)
+                    .stroke(isSelected ? JournalCalendarStyle.selectionAccent : JournalCalendarStyle.emptyCellBorder, lineWidth: isSelected ? 1.6 : 1)
             }
         }
         .buttonStyle(.plain)
@@ -289,17 +279,16 @@ private struct DietCalendarCell: View {
     }
 
     private var dayColor: Color {
-        if isSelected { return DietPalette.pinkDeep }
-        if isToday { return DietPalette.ink }
-        return DietPalette.ink.opacity(0.82)
+        if isSelected || isToday { return JournalCalendarStyle.selectionAccent }
+        return Color.inkSoft
     }
 
     private var cellBackground: Color {
         guard let summary, summary.totalCaloriesKcal > 0 else {
-            return isToday ? DietPalette.pinkWash.opacity(0.55) : Color.clear
+            return isToday ? DietPalette.pinkWash.opacity(0.55) : JournalCalendarStyle.emptyCellFill
         }
         let ratio = min(max(Double(summary.totalCaloriesKcal) / 2_200, 0.14), 1)
-        return DietPalette.pinkWash.opacity(0.28 + ratio * 0.62)
+        return DietPalette.pinkWash.opacity(0.22 + ratio * 0.48)
     }
 
     private var accessibilityText: String {
@@ -493,12 +482,25 @@ struct DietImageThumbnail: View {
 
 struct DietMealList: View {
     let meals: [MealRecord]
-    let onRemove: ((MealRecord) -> Void)?
+    let onEdit: (MealRecord) -> Void
+    let onRemove: (MealRecord) -> Void
+
+    @State private var openMealID: UUID?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
             ForEach(meals) { meal in
-                DietMealRow(meal: meal, onRemove: onRemove.map { action in { action(meal) } })
+                DietMealRow(
+                    meal: meal,
+                    openMealID: $openMealID,
+                    onEdit: { onEdit(meal) },
+                    onRemove: { onRemove(meal) }
+                )
+            }
+        }
+        .onChange(of: meals.map(\.id)) { _, mealIDs in
+            if let openMealID, !mealIDs.contains(openMealID) {
+                self.openMealID = nil
             }
         }
     }
@@ -506,9 +508,33 @@ struct DietMealList: View {
 
 private struct DietMealRow: View {
     let meal: MealRecord
-    let onRemove: (() -> Void)?
+    @Binding var openMealID: UUID?
+    let onEdit: () -> Void
+    let onRemove: () -> Void
 
     var body: some View {
+        DietSwipeActionRow(
+            id: meal.id,
+            openItemID: $openMealID,
+            accessibilityLabel: mealAccessibilityLabel,
+            accessibilityValue: mealAccessibilityValue,
+            onEdit: onEdit,
+            onRemove: onRemove
+        ) {
+            rowContent
+        }
+    }
+
+    private var mealAccessibilityLabel: String {
+        meal.title.isEmpty ? meal.mealType.title : "\(meal.mealType.title)，\(meal.title)"
+    }
+
+    private var mealAccessibilityValue: String {
+        guard let calories = meal.calculatedCaloriesKcal else { return "未填写热量" }
+        return "\(DietNumberText.kcal(calories)) 千卡"
+    }
+
+    private var rowContent: some View {
         HStack(spacing: 11) {
             DietImageThumbnail(data: meal.images.first?.imageData, contentMode: .fill)
                 .frame(width: 54, height: 54)
@@ -538,7 +564,7 @@ private struct DietMealRow: View {
             }
             Spacer(minLength: 4)
             VStack(alignment: .trailing, spacing: 3) {
-                Text(DietNumberText.kcal(meal.calculatedCaloriesKcal ?? 0))
+                Text(meal.calculatedCaloriesKcal.map(DietNumberText.kcal) ?? "--")
                     .roundedFont(16, weight: .heavy)
                     .monospacedDigit()
                     .foregroundStyle(DietPalette.pinkDeep)
@@ -546,19 +572,150 @@ private struct DietMealRow: View {
                     .roundedFont(9, weight: .medium)
                     .foregroundStyle(DietPalette.muted)
             }
-            if let onRemove {
-                Button(role: .destructive, action: onRemove) {
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(DietPalette.muted)
-                        .frame(width: 26, height: 28)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("删除这餐")
-            }
         }
         .padding(10)
+        .frame(maxWidth: .infinity)
         .background(DietPalette.paper.opacity(0.78), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+private struct DietSwipeActionRow<Content: View>: View {
+    let id: UUID
+    @Binding var openItemID: UUID?
+    let accessibilityLabel: String
+    let accessibilityValue: String
+    let onEdit: () -> Void
+    let onRemove: () -> Void
+    @ViewBuilder let content: () -> Content
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @GestureState private var dragState = SwipeDragState()
+
+    private let actionWidth: CGFloat = 120
+    private let rowHeight: CGFloat = 74
+
+    private var isOpen: Bool { openItemID == id }
+    private var baseOffset: CGFloat { isOpen ? actionWidth : 0 }
+    private var contentOffset: CGFloat {
+        min(actionWidth, max(0, baseOffset + dragState.translation))
+    }
+
+    var body: some View {
+        ZStack(alignment: .leading) {
+            actionButtons
+                .allowsHitTesting(isOpen)
+                .accessibilityHidden(!isOpen)
+
+            content()
+                .frame(maxWidth: .infinity)
+                .frame(height: rowHeight)
+                .contentShape(Rectangle())
+                .offset(x: contentOffset)
+                .onTapGesture {
+                    guard isOpen else { return }
+                    close()
+                }
+                .simultaneousGesture(swipeGesture)
+        }
+        .frame(height: rowHeight)
+        .background(DietPalette.lilacWash.opacity(0.72), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .contextMenu {
+            Button(action: performEdit) {
+                Label("编辑", systemImage: "pencil")
+            }
+            Button(role: .destructive, action: performRemove) {
+                Label("删除", systemImage: "trash")
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityValue(accessibilityValue)
+        .accessibilityAction(named: "编辑这条饮食记录", performEdit)
+        .accessibilityAction(named: "删除这条饮食记录", performRemove)
+    }
+
+    private var actionButtons: some View {
+        HStack(spacing: 0) {
+            Button(action: performEdit) {
+                Image(systemName: "pencil")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(DietPalette.lilac)
+                    .frame(width: actionWidth / 2, height: rowHeight)
+                    .background(DietPalette.lilacWash)
+            }
+            .buttonStyle(.plain)
+            .help("编辑")
+            .accessibilityLabel("编辑这条饮食记录")
+
+            Button(role: .destructive, action: performRemove) {
+                Image(systemName: "trash")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(DietPalette.pinkDeep)
+                    .frame(width: actionWidth / 2, height: rowHeight)
+                    .background(DietPalette.pinkWash)
+            }
+            .buttonStyle(.plain)
+            .help("删除")
+            .accessibilityLabel("删除这条饮食记录")
+        }
+        .frame(width: actionWidth, height: rowHeight)
+    }
+
+    private var swipeGesture: some Gesture {
+        DragGesture(minimumDistance: 12)
+            .updating($dragState) { value, state, _ in
+                let horizontal = abs(value.translation.width)
+                let vertical = abs(value.translation.height)
+                if state.direction == .undecided, hypot(horizontal, vertical) >= 8 {
+                    state.direction = horizontal > vertical * 1.2 ? .horizontal : .vertical
+                }
+                guard state.direction == .horizontal else { return }
+                state.translation = value.translation.width
+            }
+            .onChanged { _ in
+                guard dragState.direction == .horizontal,
+                      openItemID != nil,
+                      openItemID != id else { return }
+                withAnimation(settleAnimation) { openItemID = nil }
+            }
+            .onEnded { value in
+                guard dragState.direction == .horizontal else { return }
+                let projectedOffset = baseOffset + value.predictedEndTranslation.width
+                let shouldOpen = projectedOffset > actionWidth * 0.42
+                withAnimation(settleAnimation) {
+                    openItemID = shouldOpen ? id : nil
+                }
+            }
+    }
+
+    private var settleAnimation: Animation? {
+        reduceMotion ? .linear(duration: 0.01) : .spring(response: 0.28, dampingFraction: 0.86)
+    }
+
+    private struct SwipeDragState {
+        enum Direction {
+            case undecided
+            case horizontal
+            case vertical
+        }
+
+        var direction = Direction.undecided
+        var translation: CGFloat = 0
+    }
+
+    private func close() {
+        withAnimation(settleAnimation) { openItemID = nil }
+    }
+
+    private func performEdit() {
+        close()
+        onEdit()
+    }
+
+    private func performRemove() {
+        close()
+        onRemove()
     }
 }
 
@@ -656,6 +813,7 @@ struct DietDayDetailModal: View {
     let summary: DietDaySummary
     let onDismiss: () -> Void
     let onUpload: () -> Void
+    let onEdit: (MealRecord) -> Void
     let onRemove: (MealRecord) -> Void
 
     private let calendar = Calendar.current
@@ -693,7 +851,7 @@ struct DietDayDetailModal: View {
                         DietMealPhotoCollage(meals: meals)
                             .frame(height: 192)
                             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                        DietMealList(meals: meals, onRemove: onRemove)
+                        DietMealList(meals: meals, onEdit: onEdit, onRemove: onRemove)
                     }
                 }
                 .padding(.bottom, 14)
@@ -706,6 +864,173 @@ struct DietDayDetailModal: View {
                 .stroke(Color.white.opacity(0.95), lineWidth: 1.5)
         }
         .shadow(color: DietPalette.ink.opacity(0.16), radius: 28, y: 14)
+    }
+}
+
+struct DietMealEditModal: View {
+    @State private var draft: DietMealEditDraft
+    @State private var errorMessage = ""
+
+    let onSave: (DietMealEditDraft) -> Bool
+    let onDismiss: () -> Void
+
+    init(
+        meal: MealRecord,
+        onSave: @escaping (DietMealEditDraft) -> Bool,
+        onDismiss: @escaping () -> Void
+    ) {
+        _draft = State(initialValue: DietMealEditDraft(meal: meal))
+        self.onSave = onSave
+        self.onDismiss = onDismiss
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(alignment: .center, spacing: 10) {
+                Text("编辑饮食记录")
+                    .roundedFont(21, weight: .heavy)
+                    .foregroundStyle(DietPalette.ink)
+                Spacer(minLength: 8)
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(DietPalette.muted)
+                        .frame(width: 32, height: 32)
+                        .background(DietPalette.lilacWash, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .help("关闭")
+                .accessibilityLabel("关闭编辑")
+            }
+            .padding(.bottom, 18)
+
+            VStack(alignment: .leading, spacing: 16) {
+                editField(title: "餐次") {
+                    Picker("餐次", selection: $draft.mealType) {
+                        ForEach(DietMealType.allCases) { mealType in
+                            Text(mealType.title).tag(mealType)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                }
+
+                editField(title: "名称") {
+                    TextField("可留空", text: $draft.title)
+                        .roundedFont(13, weight: .medium)
+                        .textFieldStyle(.plain)
+                        .padding(.horizontal, 12)
+                        .frame(height: 42)
+                        .background(Color.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(DietPalette.rule, lineWidth: 1)
+                        }
+                }
+
+                editField(title: "日期与时间") {
+                    DatePicker(
+                        "日期与时间",
+                        selection: $draft.recordedAt,
+                        in: earliestEditableDate...max(Date(), draft.recordedAt),
+                        displayedComponents: [.date, .hourAndMinute]
+                    )
+                    .labelsHidden()
+                    .datePickerStyle(.compact)
+                    .tint(DietPalette.pinkDeep)
+                }
+
+                editField(title: "热量") {
+                    HStack(spacing: 6) {
+                        TextField("未填写", text: $draft.caloriesText)
+                            .roundedFont(18, weight: .heavy)
+                            .monospacedDigit()
+                            .textFieldStyle(.plain)
+                            #if os(iOS)
+                            .keyboardType(.decimalPad)
+                            #endif
+                        Text("kcal")
+                            .roundedFont(11, weight: .bold)
+                            .foregroundStyle(DietPalette.pinkDeep)
+                    }
+                    .padding(.horizontal, 12)
+                    .frame(height: 44)
+                    .background(Color.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(draft.caloriesInputIsValid ? DietPalette.rule : DietPalette.pinkDeep, lineWidth: 1)
+                    }
+                }
+
+                if !draft.caloriesInputIsValid {
+                    Label("请输入 0 至 20000，最多保留一位小数", systemImage: "exclamationmark.circle.fill")
+                        .roundedFont(10, weight: .medium)
+                        .foregroundStyle(DietPalette.pinkDeep)
+                }
+
+                if !errorMessage.isEmpty {
+                    Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                        .roundedFont(10, weight: .medium)
+                        .foregroundStyle(DietPalette.pinkDeep)
+                }
+            }
+
+            HStack(spacing: 9) {
+                Button("取消", action: onDismiss)
+                    .roundedFont(12, weight: .bold)
+                    .foregroundStyle(DietPalette.muted)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .background(DietPalette.lilacWash, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+                    .buttonStyle(.plain)
+
+                Button("保存", action: save)
+                    .roundedFont(12, weight: .bold)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .background(DietPalette.pink, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+                    .buttonStyle(.plain)
+                    .disabled(!draft.canSave)
+                    .opacity(draft.canSave ? 1 : 0.45)
+            }
+            .padding(.top, 18)
+        }
+        .padding(18)
+        .background(DietPalette.paper, in: RoundedRectangle(cornerRadius: 27, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 27, style: .continuous)
+                .stroke(Color.white.opacity(0.95), lineWidth: 1.5)
+        }
+        .shadow(color: DietPalette.ink.opacity(0.16), radius: 28, y: 14)
+        .onChange(of: draft.caloriesText) { _, _ in errorMessage = "" }
+    }
+
+    private var earliestEditableDate: Date {
+        Calendar(identifier: .gregorian).date(from: DateComponents(year: 2000, month: 1, day: 1)) ?? .distantPast
+    }
+
+    private func editField<Content: View>(
+        title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(title)
+                .roundedFont(10, weight: .bold)
+                .foregroundStyle(DietPalette.muted)
+            content()
+        }
+    }
+
+    private func save() {
+        guard draft.canSave else {
+            errorMessage = draft.caloriesInputIsValid ? "请保留至少一项记录内容" : "请检查热量格式"
+            return
+        }
+        guard onSave(draft) else {
+            errorMessage = "这条记录暂时无法保存，请稍后重试。"
+            return
+        }
     }
 }
 

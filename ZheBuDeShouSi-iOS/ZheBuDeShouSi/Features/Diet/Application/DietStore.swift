@@ -23,6 +23,7 @@ final class DietStore: ObservableObject {
 
     @Published private(set) var meals: [MealRecord] = []
 
+    private var deletedExternalIdentifiers: Set<String> = []
     private let defaults: UserDefaults
     private let calendar: Calendar
 
@@ -139,6 +140,36 @@ final class DietStore: ObservableObject {
     @discardableResult
     func update(_ record: MealRecord) -> Bool { upsert(record) }
 
+    /// Strict edit path for an existing meal. Identity, photos, source metadata,
+    /// creation time, notes, and external IDs remain owned by the stored record.
+    @discardableResult
+    func updateMeal(
+        id: UUID,
+        date: Date,
+        mealType: DietMealType,
+        title: String,
+        caloriesKcal: Double?
+    ) -> Bool {
+        guard var record = record(id: id) else { return false }
+        let caloriesChanged = !Self.sameCalories(record.calculatedCaloriesKcal, caloriesKcal)
+
+        record.date = date
+        record.mealType = mealType
+        record.title = title
+        if caloriesChanged {
+            record.caloriesKcal = caloriesKcal
+            if caloriesKcal == nil {
+                record.foods = record.foods.map { food in
+                    var copy = food
+                    copy.caloriesKcal = nil
+                    return copy
+                }
+            }
+        }
+        record.updatedAt = .now
+        return upsert(record)
+    }
+
     /// Convenience constructor used by upload/manual-entry UI.
     @discardableResult
     func addMeal(
@@ -198,6 +229,10 @@ final class DietStore: ObservableObject {
     }
 
     func remove(id: UUID) {
+        if let externalIdentifier = meals.first(where: { $0.id == id })?.externalIdentifier,
+           !externalIdentifier.isEmpty {
+            deletedExternalIdentifiers.insert(externalIdentifier)
+        }
         meals.removeAll { $0.id == id }
         save()
     }
@@ -205,6 +240,7 @@ final class DietStore: ObservableObject {
     func remove(_ record: MealRecord) { remove(id: record.id) }
 
     func removeAll() {
+        deletedExternalIdentifiers.formUnion(meals.compactMap(\.externalIdentifier))
         meals.removeAll()
         save()
     }
@@ -217,6 +253,7 @@ final class DietStore: ObservableObject {
         var imported: [MealRecord] = []
         for sample in samples {
             guard sample.kilocalories.isFinite, sample.kilocalories >= 0,
+                  !deletedExternalIdentifiers.contains(sample.id),
                   !meals.contains(where: { $0.externalIdentifier == sample.id }),
                   !imported.contains(where: { $0.externalIdentifier == sample.id }),
                   meals.count + imported.count < Self.maxMeals else { continue }
@@ -314,6 +351,14 @@ final class DietStore: ObservableObject {
         totalImageBytes + images.reduce(0) { $0 + $1.byteCount } <= Self.maxTotalImageBytes
     }
 
+    private static func sameCalories(_ lhs: Double?, _ rhs: Double?) -> Bool {
+        switch (lhs, rhs) {
+        case (nil, nil): return true
+        case let (left?, right?): return abs(left - right) < 0.05
+        default: return false
+        }
+    }
+
     private static var earliestDate: Date {
         Calendar(identifier: .gregorian).date(
             from: DateComponents(year: 2000, month: 1, day: 1)
@@ -337,12 +382,18 @@ final class DietStore: ObservableObject {
         var version: Int?
         var meals: [MealRecord]?
         var records: [MealRecord]?
+        var deletedExternalIdentifiers: [String]?
 
         var resolvedMeals: [MealRecord] { meals ?? records ?? [] }
     }
 
     private func save() {
-        let payload = PersistedSnapshot(version: 1, meals: meals, records: nil)
+        let payload = PersistedSnapshot(
+            version: 2,
+            meals: meals,
+            records: nil,
+            deletedExternalIdentifiers: deletedExternalIdentifiers.sorted()
+        )
         guard let data = try? JSONEncoder().encode(payload),
               data.count <= Self.maxPersistedPayloadBytes else { return }
         defaults.set(data, forKey: Self.storageKey)
@@ -353,6 +404,7 @@ final class DietStore: ObservableObject {
         let decoder = JSONDecoder()
         if let payload = try? decoder.decode(PersistedSnapshot.self, from: data) {
             meals = payload.resolvedMeals.compactMap { validated($0) }
+            deletedExternalIdentifiers = Set(payload.deletedExternalIdentifiers ?? [])
             sortWithoutSaving()
             return
         }

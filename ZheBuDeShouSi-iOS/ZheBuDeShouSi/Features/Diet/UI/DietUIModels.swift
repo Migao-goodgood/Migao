@@ -28,6 +28,62 @@ enum DietUploadState: Equatable {
     }
 }
 
+/// Editable presentation values for an existing meal. Persistence remains in
+/// DietStore so the UI cannot accidentally create a replacement record.
+struct DietMealEditDraft: Equatable {
+    let mealID: UUID
+    let hasPreservedContent: Bool
+    var mealType: DietMealType
+    var title: String
+    var recordedAt: Date
+    var caloriesText: String
+
+    init(meal: MealRecord) {
+        mealID = meal.id
+        hasPreservedContent = !meal.images.isEmpty || !meal.foods.isEmpty
+        mealType = meal.mealType
+        title = meal.title
+        recordedAt = meal.date
+        if let calories = meal.calculatedCaloriesKcal {
+            let rounded = (calories * 10).rounded() / 10
+            caloriesText = rounded.rounded() == rounded
+                ? String(format: "%.0f", rounded)
+                : String(format: "%.1f", rounded)
+        } else {
+            caloriesText = ""
+        }
+    }
+
+    var trimmedTitle: String {
+        title.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var caloriesKcal: Double? {
+        let text = normalizedCaloriesText
+        guard !text.isEmpty,
+              text.range(of: #"^\d{1,5}(?:\.\d)?$"#, options: .regularExpression) != nil,
+              let value = Double(text),
+              value.isFinite,
+              (0...20_000).contains(value) else { return nil }
+        return value
+    }
+
+    var caloriesInputIsValid: Bool {
+        normalizedCaloriesText.isEmpty || caloriesKcal != nil
+    }
+
+    var canSave: Bool {
+        caloriesInputIsValid
+            && (hasPreservedContent || !trimmedTitle.isEmpty || caloriesKcal != nil)
+    }
+
+    private var normalizedCaloriesText: String {
+        caloriesText
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: ",", with: ".")
+    }
+}
+
 enum DietPalette {
     static let paper = Color(hex: "FFF8FC")
     static let surface = Color.white.opacity(0.96)

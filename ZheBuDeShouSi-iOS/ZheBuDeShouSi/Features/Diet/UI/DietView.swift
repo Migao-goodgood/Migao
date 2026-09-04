@@ -25,6 +25,9 @@ struct DietView: View {
     @State private var reviewDraft = DietPhotoAnalysisDraft()
     @State private var reviewDate: Date = .now
     @State private var uploadRequestID = UUID()
+    @State private var editingMeal: MealRecord?
+    @State private var editReturnDate: Date?
+    @State private var mealPendingDeletion: MealRecord?
 
     init(
         store: DietStore,
@@ -85,7 +88,18 @@ struct DietView: View {
                         summary: store.summary(for: detailDate),
                         onDismiss: dismissDetail,
                         onUpload: { beginUpload(for: detailDate) },
-                        onRemove: { store.remove($0) }
+                        onEdit: beginEditing,
+                        onRemove: { mealPendingDeletion = $0 }
+                    )
+                }
+            }
+
+            if let editingMeal {
+                DietCenteredOverlay(onDismiss: cancelEditing) {
+                    DietMealEditModal(
+                        meal: editingMeal,
+                        onSave: saveEditing,
+                        onDismiss: cancelEditing
                     )
                 }
             }
@@ -134,6 +148,16 @@ struct DietView: View {
         .onChange(of: selectedPhotoItems) { _, items in
             guard !items.isEmpty else { return }
             loadPhotos(items, for: pickerDate)
+        }
+        .alert(item: $mealPendingDeletion) { meal in
+            Alert(
+                title: Text("删除这条饮食记录？"),
+                message: Text("照片和热量记录将从本机删除，此操作无法撤销。"),
+                primaryButton: .destructive(Text("删除")) {
+                    store.remove(meal)
+                },
+                secondaryButton: .cancel(Text("取消"))
+            )
         }
         .preferredColorScheme(.light)
     }
@@ -196,6 +220,43 @@ struct DietView: View {
 
     private func dismissDetail() {
         withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) { detailDate = nil }
+    }
+
+    private func beginEditing(_ meal: MealRecord) {
+        editReturnDate = detailDate ?? calendar.startOfDay(for: meal.date)
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
+            detailDate = nil
+            editingMeal = meal
+        }
+    }
+
+    private func saveEditing(_ draft: DietMealEditDraft) -> Bool {
+        let saved = store.updateMeal(
+            id: draft.mealID,
+            date: draft.recordedAt,
+            mealType: draft.mealType,
+            title: draft.trimmedTitle,
+            caloriesKcal: draft.caloriesKcal
+        )
+        guard saved else { return false }
+        finishEditing(returningTo: calendar.startOfDay(for: draft.recordedAt))
+        return true
+    }
+
+    private func cancelEditing() {
+        finishEditing(returningTo: editReturnDate)
+    }
+
+    private func finishEditing(returningTo date: Date?) {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
+            editingMeal = nil
+            if let date {
+                selectedDate = date
+                month = calendar.date(from: calendar.dateComponents([.year, .month], from: date)) ?? date
+                detailDate = date
+            }
+            editReturnDate = nil
+        }
     }
 
     private func beginUpload(for date: Date) {

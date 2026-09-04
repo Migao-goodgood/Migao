@@ -23,7 +23,7 @@ enum WeightCalendarService {
         calendar inputCalendar: Calendar = .current
     ) -> [WeightDaySummary] {
         var calendar = inputCalendar
-        calendar.firstWeekday = 1 // Sunday first, matching the calendar UI.
+        calendar.firstWeekday = 2 // Monday first, matching both journal grids.
 
         let grouped = Dictionary(grouping: records) {
             calendar.startOfDay(for: $0.date)
@@ -116,11 +116,7 @@ struct WeightCalendarView: View {
     @State private var displayedMonth: Date
 
     private var calendar: Calendar {
-        var value = Calendar(identifier: .gregorian)
-        value.locale = Locale(identifier: "zh_CN")
-        value.timeZone = .current
-        value.firstWeekday = 1
-        return value
+        JournalCalendarStyle.calendar()
     }
 
     init(state: AppState, onRecord: @escaping () -> Void) {
@@ -169,14 +165,7 @@ struct WeightCalendarView: View {
     }
 
     private var calendarDates: [Date?] {
-        let dayRange = calendar.range(of: .day, in: .month, for: monthStart) ?? (1..<31)
-        let leading = calendar.component(.weekday, from: monthStart) - 1
-        let totalDays = dayRange.count
-        return (0..<42).map { index in
-            let dayIndex = index - leading
-            guard dayIndex >= 0, dayIndex < totalDays else { return nil }
-            return calendar.date(byAdding: .day, value: dayIndex, to: monthStart)
-        }
+        JournalCalendarStyle.monthGrid(for: monthStart, calendar: calendar)
     }
 
     var body: some View {
@@ -189,42 +178,31 @@ struct WeightCalendarView: View {
             monthNavigation
                 .padding(.top, 14)
             weekdayHeader
-                .padding(.top, 18)
+                .padding(.top, JournalCalendarStyle.weekdaySpacing)
             calendarGrid
                 .padding(.top, 8)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 18)
-        .background(Color.white, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(Color.platinumLight, lineWidth: 1)
-        }
-        .shadow(color: Color.platinum.opacity(0.18), radius: 14, y: 7)
+        .padding(.horizontal, JournalCalendarStyle.cardHorizontalPadding)
+        .padding(.vertical, JournalCalendarStyle.cardVerticalPadding)
+        .journalCalendarSurface()
         .accessibilityElement(children: .contain)
     }
 
     private var header: some View {
         HStack(alignment: .center, spacing: 10) {
-            Spacer()
             Text("本月 \(monthRecordCount) 天")
                 .roundedFont(11, weight: .medium)
                 .foregroundStyle(Color.platinumDeep)
 
-            Button(action: onRecord) {
-                HStack(spacing: 4) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 10, weight: .heavy))
-                    Text("记录")
-                        .roundedFont(10, weight: .bold)
-                }
-                .foregroundStyle(Color.inkSoft)
-                .padding(.horizontal, 9)
-                .frame(height: 28)
-                .background(Color.jellyMint.opacity(0.24), in: Capsule())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("记录体重")
+            JournalAddActionButton(
+                systemName: "scalemass",
+                foregroundColor: Color.waterAccent,
+                surfaceColor: Color.waterAccentPale,
+                badgeColor: Color.jellyPink,
+                borderColor: Color.white,
+                accessibilityLabel: "记录体重",
+                action: onRecord
+            )
         }
     }
 
@@ -265,17 +243,17 @@ struct WeightCalendarView: View {
 
     private var weekdayHeader: some View {
         LazyVGrid(columns: calendarColumns, spacing: 0) {
-            ForEach(["日", "一", "二", "三", "四", "五", "六"], id: \.self) { day in
+            ForEach(JournalCalendarStyle.weekdaySymbols, id: \.self) { day in
                 Text(day)
                     .roundedFont(10, weight: .bold)
-                    .foregroundStyle(Color.platinumDeep)
+                    .foregroundStyle(day == "日" ? JournalCalendarStyle.selectionAccent : Color.platinumDeep)
                     .frame(maxWidth: .infinity)
             }
         }
     }
 
     private var calendarGrid: some View {
-        LazyVGrid(columns: calendarColumns, spacing: 7) {
+        LazyVGrid(columns: calendarColumns, spacing: JournalCalendarStyle.rowSpacing) {
             ForEach(Array(calendarDates.enumerated()), id: \.offset) { _, date in
                 if let date {
                     WeightCalendarDayCell(
@@ -291,7 +269,7 @@ struct WeightCalendarView: View {
                 } else {
                     Color.clear
                         .frame(maxWidth: .infinity)
-                        .frame(height: 64)
+                        .frame(height: JournalCalendarStyle.cellHeight)
                         .accessibilityHidden(true)
                 }
             }
@@ -299,7 +277,7 @@ struct WeightCalendarView: View {
     }
 
     private var calendarColumns: [GridItem] {
-        Array(repeating: GridItem(.flexible(minimum: 0), spacing: 7), count: 7)
+        JournalCalendarStyle.columns()
     }
 
     private func moveMonth(_ offset: Int) {
@@ -338,8 +316,8 @@ private struct WeightCalendarDayCell: View {
     var body: some View {
         VStack(spacing: 4) {
             Text("\(calendar.component(.day, from: date))")
-                .roundedFont(10, weight: .bold)
-                .foregroundStyle(summary == nil ? Color.platinumDeep : Color.inkSoft)
+                .roundedFont(14, weight: isToday ? .heavy : .semibold)
+                .foregroundStyle(isToday ? JournalCalendarStyle.selectionAccent : Color.inkSoft)
 
             if let summary {
                 Text(unit.formattedValue(fromKilograms: summary.representative.weight))
@@ -355,15 +333,19 @@ private struct WeightCalendarDayCell: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 64)
+        .frame(height: JournalCalendarStyle.cellHeight)
         .background(
-            summary == nil ? Color.platinumPale.opacity(0.35) : tone.opacity(style.fillOpacity),
-            in: RoundedRectangle(cornerRadius: 13, style: .continuous)
+            summary == nil ? JournalCalendarStyle.emptyCellFill : tone.opacity(style.fillOpacity),
+            in: RoundedRectangle(cornerRadius: JournalCalendarStyle.cellRadius, style: .continuous)
         )
         .overlay {
-            RoundedRectangle(cornerRadius: 13, style: .continuous)
+            RoundedRectangle(cornerRadius: JournalCalendarStyle.cellRadius, style: .continuous)
                 .stroke(
-                    isToday ? tone : tone.opacity(summary == nil ? 0.10 : style.borderOpacity),
+                    isToday
+                        ? JournalCalendarStyle.selectionAccent
+                        : (summary == nil
+                            ? JournalCalendarStyle.emptyCellBorder
+                            : tone.opacity(style.borderOpacity)),
                     lineWidth: isToday ? 1.5 : 1
                 )
         }
