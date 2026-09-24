@@ -10,8 +10,13 @@ import PhotosUI
 struct DietView: View {
     @ObservedObject var store: DietStore
 
-    private let analyzer: DietPhotoAnalysisHandler?
     private let calendar: Calendar
+    private let remoteEndpoint: URL?
+    @StateObject private var capture: DietCaptureCoordinator
+    @Environment(\.scenePhase) private var scenePhase
+    @AppStorage("zhebudeshousi.dietAI.consentEndpoint") private var consentEndpoint = ""
+    @State private var showsAIConsent = false
+    @State private var showsAISettings = false
 
     @State private var displayMode = DietDisplayMode.calendar
     @State private var month: Date
@@ -20,25 +25,39 @@ struct DietView: View {
     @State private var isPhotoPickerPresented = false
     @State private var pickerDate: Date
     @State private var selectedPhotoItems: [PhotosPickerItem] = []
-    @State private var uploadedImageData: [Data] = []
-    @State private var uploadState = DietUploadState.idle
-    @State private var reviewDraft = DietPhotoAnalysisDraft()
-    @State private var reviewDate: Date = .now
-    @State private var uploadRequestID = UUID()
     @State private var editingMeal: MealRecord?
     @State private var editReturnDate: Date?
     @State private var mealPendingDeletion: MealRecord?
+    @State private var draftPendingDeletion: DietCaptureDraft?
+    @State private var isDiscardingCapture = false
+    @State private var feedbackMessage: String?
+    @State private var feedbackIsError = false
+    @State private var photoLoadTask: Task<Void, Never>?
 
     init(
         store: DietStore,
         analyzer: DietPhotoAnalysisHandler? = nil,
+        remoteAnalyzer: DietAIPhotoAnalyzer = DietAIPhotoAnalyzer(),
         calendar: Calendar = .current
     ) {
         self.store = store
-        self.analyzer = analyzer
         var localCalendar = calendar
         localCalendar.locale = calendar.locale ?? Locale(identifier: "zh_CN")
         self.calendar = localCalendar
+        let endpoint = analyzer == nil && remoteAnalyzer.isConfigured ? remoteAnalyzer.endpoint : nil
+        self.remoteEndpoint = endpoint
+        let handler: DietPhotoAnalysisHandler?
+        if let analyzer {
+            handler = analyzer
+        } else if endpoint != nil {
+            handler = { request in await remoteAnalyzer.analyze(request: request) }
+        } else {
+            handler = nil
+        }
+        _capture = StateObject(wrappedValue: DietCaptureCoordinator(
+            store: store, analyzer: handler, calendar: localCalendar,
+            requiresRemoteConsent: endpoint != nil
+        ))
         let today = localCalendar.startOfDay(for: .now)
         _month = State(initialValue: today)
         _selectedDate = State(initialValue: today)
@@ -48,8 +67,30 @@ struct DietView: View {
     var body: some View {
         ZStack(alignment: .top) {
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: JournalPageLayout.sectionSpacing) {
                     header
+
+                    if let feedbackMessage {
+                        HStack(spacing: 8) {
+                            Image(systemName: feedbackIsError ? "exclamationmark.circle" : "checkmark.circle.fill")
+                            Text(feedbackMessage)
+                            Spacer(minLength: 4)
+                            Button { self.feedbackMessage = nil } label: {
+                                Image(systemName: "xmark")
+                            }
+                            .accessibilityLabel("关闭提示")
+                        }
+                        .roundedFont(12, weight: .medium)
+                        .foregroundStyle(feedbackIsError ? DietPalette.pinkDeep : DietPalette.muted)
+                    }
+
+                    if !store.drafts.isEmpty {
+                        DietDraftShelf(
+                            drafts: store.drafts,
+                            onResume: resumeDraft,
+                            onRemove: { draftPendingDeletion = $0 }
+                        )
+                    }
 
                     DietMonthToolbar(
                         month: month,
@@ -73,12 +114,12 @@ struct DietView: View {
 
                     monthCaption
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 16)
+                .padding(.horizontal, JournalPageLayout.horizontalPadding)
+                .padding(.top, JournalPageLayout.topPadding)
                 .padding(.bottom, 118)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .background(DietPalette.paper.ignoresSafeArea())
+            .background(JournalPageLayout.pageBackground.ignoresSafeArea())
 
             if let detailDate {
                 DietCenteredOverlay(onDismiss: dismissDetail) {
@@ -104,37 +145,20 @@ struct DietView: View {
                 }
             }
 
-            if uploadState.isBusy {
-                DietCenteredOverlay(onDismiss: cancelReview) {
+            if capture.isPresented {
+                // Close/Later run the form's validation. A backdrop tap must
+                // not bypass invalid input or accidentally suspend the form.
+                DietCenteredOverlay(onDismiss: {}) {
                     DietRecognitionReviewCard(
-                        draft: $reviewDraft,
-                        imageData: uploadedImageData,
-                        isLoading: true,
-                        errorMessage: nil,
-                        onConfirm: {},
-                        onCancel: cancelReview
-                    )
-                }
-            } else if case .review = uploadState {
-                DietCenteredOverlay(onDismiss: cancelReview) {
-                    DietRecognitionReviewCard(
-                        draft: $reviewDraft,
-                        imageData: uploadedImageData,
-                        isLoading: uploadState.isBusy,
-                        errorMessage: nil,
+                        draft: Binding(get: { capture.analysis }, set: { capture.updateAnalysis($0) }),
+                        recordedAt: Binding(get: { capture.recordedAt }, set: { capture.updateDate($0) }),
+                        imageData: capture.imageData,
+                        isLoading: capture.isBusy,
+                        errorMessage: capture.errorMessage,
                         onConfirm: confirmReview,
-                        onCancel: cancelReview
-                    )
-                }
-            } else if case .failed(let message) = uploadState {
-                DietCenteredOverlay(onDismiss: cancelReview) {
-                    DietRecognitionReviewCard(
-                        draft: $reviewDraft,
-                        imageData: uploadedImageData,
-                        isLoading: false,
-                        errorMessage: message,
-                        onConfirm: confirmReview,
-                        onCancel: cancelReview
+                        onCancel: suspendCapture,
+                        onDiscard: { isDiscardingCapture = true },
+                        onRetry: remoteEndpoint == nil ? nil : { capture.requestAnalysis() }
                     )
                 }
             }
@@ -149,15 +173,70 @@ struct DietView: View {
             guard !items.isEmpty else { return }
             loadPhotos(items, for: pickerDate)
         }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background { capture.pauseForDeparture() }
+        }
+        .onChange(of: capture.phase) { _, phase in
+            guard phase == .awaitingConsent else { return }
+            if let endpoint = remoteEndpoint, consentEndpoint == endpoint.absoluteString {
+                capture.allowRemoteAnalysis()
+            } else {
+                showsAIConsent = true
+            }
+        }
+        .alert("开启餐食 AI 识图？", isPresented: $showsAIConsent) {
+            Button("开启自动识图") {
+                consentEndpoint = remoteEndpoint?.absoluteString ?? ""
+                capture.allowRemoteAnalysis()
+            }
+            Button("本次只保存照片", role: .cancel) { capture.declineRemoteAnalysis() }
+        } message: {
+            Text("照片将发送到 \(remoteEndpoint?.host ?? "餐食分析服务")，再交给 OpenAI 估算热量。开启后，后续选择的餐食照片会自动分析；可在饮食页底部关闭。结果为估算值，请按实际食用份量核对。")
+        }
+        .onDisappear {
+            photoLoadTask?.cancel()
+            capture.pauseForDeparture()
+        }
         .alert(item: $mealPendingDeletion) { meal in
             Alert(
                 title: Text("删除这条饮食记录？"),
                 message: Text("照片和热量记录将从本机删除，此操作无法撤销。"),
                 primaryButton: .destructive(Text("删除")) {
-                    store.remove(meal)
+                    if !store.remove(meal) {
+                        showFeedback(store.lastErrorMessage ?? "删除失败，请重试。", isError: true)
+                    }
                 },
                 secondaryButton: .cancel(Text("取消"))
             )
+        }
+        .confirmationDialog("删除这份草稿？", isPresented: Binding(
+            get: { draftPendingDeletion != nil },
+            set: { if !$0 { draftPendingDeletion = nil } }
+        ), titleVisibility: .visible) {
+            Button("删除草稿", role: .destructive) {
+                if let pending = draftPendingDeletion, !store.removeDraft(id: pending.id) {
+                    showFeedback(store.lastErrorMessage ?? "草稿删除失败，请重试。", isError: true)
+                }
+                draftPendingDeletion = nil
+            }
+            Button("取消", role: .cancel) { draftPendingDeletion = nil }
+        } message: {
+            Text("草稿中的照片和填写内容会被移除，正式饮食记录不受影响。")
+        }
+        .confirmationDialog("放弃这次记录？", isPresented: $isDiscardingCapture, titleVisibility: .visible) {
+            Button("放弃并删除草稿", role: .destructive) {
+                if capture.discard() { selectedPhotoItems = [] }
+            }
+            Button("继续填写", role: .cancel) { }
+        }
+        .confirmationDialog("餐食 AI 识图", isPresented: $showsAISettings, titleVisibility: .visible) {
+            Button("关闭自动识图") {
+                consentEndpoint = ""
+                capture.pauseForDeparture()
+            }
+            Button("取消", role: .cancel) { }
+        } message: {
+            Text("关闭后，下次发送照片前会再次询问。已保存的照片和记录会保留。")
         }
         .preferredColorScheme(.light)
     }
@@ -166,7 +245,10 @@ struct DietView: View {
         DietPageHeader(
             totalCalories: Int(monthSummaries.reduce(0) { $0 + $1.totalCaloriesKcal }.rounded()),
             recordedDays: monthSummaries.filter(\.hasMeals).count,
-            onAdd: { beginUpload(for: selectedDate) }
+            knownCaloriesMealCount: monthSummaries.reduce(0) { $0 + $1.knownCaloriesMealCount },
+            missingCaloriesMealCount: monthSummaries.reduce(0) { $0 + $1.missingCaloriesMealCount },
+            hasEstimatedCalories: monthSummaries.contains(where: \.hasEstimatedCalories),
+            onAdd: { beginUpload(for: .now) }
         )
     }
 
@@ -182,6 +264,11 @@ struct DietView: View {
             if monthSummaries.contains(where: \DietDaySummary.hasPendingRecognition) {
                 Label("有待确认记录", systemImage: "sparkles")
                     .roundedFont(10, weight: .bold)
+                    .foregroundStyle(DietPalette.lilac)
+            }
+            if remoteEndpoint != nil {
+                Button("AI 识图设置") { showsAISettings = true }
+                    .roundedFont(10, weight: .medium)
                     .foregroundStyle(DietPalette.lilac)
             }
         }
@@ -240,6 +327,7 @@ struct DietView: View {
         )
         guard saved else { return false }
         finishEditing(returningTo: calendar.startOfDay(for: draft.recordedAt))
+        showSavedFeedback(for: draft.recordedAt)
         return true
     }
 
@@ -260,9 +348,9 @@ struct DietView: View {
     }
 
     private func beginUpload(for date: Date) {
-        pickerDate = calendar.startOfDay(for: date)
+        guard !capture.isPresented || capture.suspend() else { return }
+        pickerDate = date
         selectedPhotoItems = []
-        uploadRequestID = UUID()
         // Keep the upload/review surface as the only active overlay. The day
         // detail is restored after a successful confirmation.
         detailDate = nil
@@ -270,93 +358,65 @@ struct DietView: View {
     }
 
     private func loadPhotos(_ items: [PhotosPickerItem], for date: Date) {
-        let requestID = uploadRequestID
-        uploadState = .loading
-        reviewDate = date
-
-        Task { @MainActor in
+        photoLoadTask?.cancel()
+        let requestID = capture.beginLoading(for: date)
+        photoLoadTask = Task { @MainActor in
             var data: [Data] = []
             for item in items.prefix(6) {
-                if let image = try? await item.loadTransferable(type: Data.self),
-                   !image.isEmpty {
-                    data.append(image)
+                guard !Task.isCancelled, capture.isCurrent(requestID) else { return }
+                do {
+                    guard let image = try await item.loadTransferable(type: Data.self), !image.isEmpty else {
+                        throw DietPhotoPreparation.Failure.unreadable
+                    }
+                    let prepared = try await Task.detached(priority: .userInitiated) {
+                        try DietPhotoPreparation.prepare(image)
+                    }.value
+                    data.append(prepared)
+                } catch {
+                    guard !Task.isCancelled else { return }
+                    capture.receivePhotos([], token: requestID, failureMessage: error.localizedDescription)
+                    return
                 }
             }
-
-            guard requestID == uploadRequestID else { return }
-            guard !data.isEmpty else {
-                uploadedImageData = []
-                uploadState = .failed("没有读取到照片，请重新选择。")
-                return
-            }
-
-            uploadedImageData = data
-            let request = DietPhotoAnalysisRequest(date: date, imageData: data)
-            let analyzedDraft: DietPhotoAnalysisDraft?
-            if let analyzer {
-                analyzedDraft = await analyzer(request)
-            } else {
-                analyzedDraft = await DietPhotoAnalysisService.analyze(request: request)
-            }
-            guard requestID == uploadRequestID else { return }
-            reviewDraft = analyzedDraft ?? DietPhotoAnalysisDraft(
-                mealType: .snack,
-                title: "",
-                caloriesKcal: nil,
-                foods: [],
-                confidence: nil,
-                sourceLabel: "照片已载入 · 请手动确认名称和热量"
-            )
-            uploadState = .review(reviewDraft)
+            guard !Task.isCancelled else { return }
+            capture.receivePhotos(data, token: requestID)
         }
     }
 
     private func confirmReview() {
-        let title = reviewDraft.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        let calories = reviewDraft.caloriesKcal.map { max(0, $0) }
-        guard !title.isEmpty || calories != nil else { return }
-
-        let images = uploadedImageData.enumerated().map { index, data in
-            MealImageMetadata(
-                data: data,
-                filename: "饮食-\(index + 1).jpg",
-                capturedAt: .now
-            )
-        }
-        let source: DietRecordSource = analyzer == nil ? .photo : .ai
-        // A meal only reaches the store after the user confirms the review
-        // card, so it is no longer pending even when the default on-device
-        // analyzer was used.
-        let status: DietRecognitionStatus = .recognized
-        let saved = store.addMeal(
-            date: reviewDate,
-            mealType: reviewDraft.mealType,
-            title: title,
-            caloriesKcal: calories.map(Double.init),
-            images: images,
-            note: "",
-            source: source,
-            recognitionStatus: status,
-            foods: reviewDraft.foods
-        )
-        guard saved != nil else {
-            uploadState = .failed("这组照片暂时无法保存，请减少照片数量后重试。")
-            return
-        }
-        selectedDate = reviewDate
-        detailDate = reviewDate
-        cancelReviewStateOnly()
-    }
-
-    private func cancelReview() {
-        cancelReviewStateOnly()
-    }
-
-    private func cancelReviewStateOnly() {
-        uploadRequestID = UUID()
-        uploadState = .idle
-        uploadedImageData = []
+        guard let saved = capture.confirm() else { return }
         selectedPhotoItems = []
+        selectedDate = calendar.startOfDay(for: saved.date)
+        month = calendar.date(from: calendar.dateComponents([.year, .month], from: saved.date)) ?? saved.date
+        detailDate = selectedDate
+        showSavedFeedback(for: saved.date)
+    }
+
+    private func suspendCapture() {
+        let hadPhotos = !capture.imageData.isEmpty
+        guard capture.suspend() else { return }
+        photoLoadTask?.cancel()
+        selectedPhotoItems = []
+        if hadPhotos { showFeedback("草稿已保存，可在饮食页继续填写。") }
+    }
+
+    private func resumeDraft(_ draft: DietCaptureDraft) {
+        detailDate = nil
+        editingMeal = nil
+        selectedPhotoItems = []
+        capture.resume(draft)
+    }
+
+    private func showSavedFeedback(for date: Date) {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "M月d日"
+        showFeedback("已保存到 \(formatter.string(from: date))")
+    }
+
+    private func showFeedback(_ message: String, isError: Bool = false) {
+        feedbackMessage = message
+        feedbackIsError = isError
     }
 }
 

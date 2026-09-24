@@ -111,7 +111,6 @@ struct WeightModuleTitle: View {
 
 struct WeightCalendarView: View {
     @ObservedObject var state: AppState
-    let onRecord: () -> Void
 
     @State private var displayedMonth: Date
 
@@ -119,9 +118,8 @@ struct WeightCalendarView: View {
         JournalCalendarStyle.calendar()
     }
 
-    init(state: AppState, onRecord: @escaping () -> Void) {
+    init(state: AppState) {
         self.state = state
-        self.onRecord = onRecord
         let seed = state.records.max(by: { $0.date < $1.date })?.date ?? .now
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .current
@@ -189,21 +187,9 @@ struct WeightCalendarView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .center, spacing: 10) {
-            Text("本月 \(monthRecordCount) 天")
-                .roundedFont(11, weight: .medium)
-                .foregroundStyle(Color.platinumDeep)
-
-            JournalAddActionButton(
-                systemName: "scalemass",
-                foregroundColor: Color.waterAccent,
-                surfaceColor: Color.waterAccentPale,
-                badgeColor: Color.jellyPink,
-                borderColor: Color.white,
-                accessibilityLabel: "记录体重",
-                action: onRecord
-            )
-        }
+        Text("本月 \(monthRecordCount) 天")
+            .roundedFont(11, weight: .medium)
+            .foregroundStyle(Color.platinumDeep)
     }
 
     private var monthNavigation: some View {

@@ -9,16 +9,69 @@ struct DietPhotoAnalysisRequest {
 
 /// Review-first analysis output. Missing values are intentional until the
 /// user confirms or edits them.
-struct DietPhotoAnalysisDraft: Equatable {
+struct DietPhotoAnalysisDraft: Codable, Equatable {
     var mealType: DietMealType = .snack
     var title: String = ""
     var caloriesKcal: Int?
     var foods: [RecognizedFoodItem] = []
     var confidence: Double?
     var sourceLabel: String = "设备端识别"
+    /// Original AI estimate and the user's serving adjustment. These remain
+    /// optional so existing drafts keep their original meaning on upgrade.
+    var estimatedCaloriesKcal: Int?
+    var portionMultiplier: Double?
+
+    var isCalorieEstimate: Bool {
+        DietCalorieEstimate.isValid(
+            base: estimatedCaloriesKcal,
+            multiplier: portionMultiplier,
+            calories: caloriesKcal.map(Double.init)
+        )
+    }
 
     var isReadyForConfirmation: Bool {
         !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || caloriesKcal != nil
+    }
+}
+
+/// Shared provenance rule for review drafts, confirmed records and totals.
+/// A number is never called an AI estimate just because its source is a photo.
+enum DietCalorieEstimate {
+    static func isValid(base: Int?, multiplier: Double?, calories: Double?) -> Bool {
+        guard let base, (0...20_000).contains(base),
+              let multiplier, multiplier.isFinite, (0.25...2).contains(multiplier),
+              let calories, calories.isFinite, (0...20_000).contains(calories) else { return false }
+        return (Double(base) * multiplier).rounded() == calories
+    }
+}
+
+/// A recoverable capture, kept separate from confirmed meals and daily totals.
+/// Its ID becomes the final meal ID so repeated confirmation is idempotent.
+struct DietCaptureDraft: Identifiable, Codable, Equatable {
+    var id: UUID
+    var date: Date
+    var analysis: DietPhotoAnalysisDraft
+    var images: [MealImageMetadata]
+    var source: DietRecordSource
+    var createdAt: Date
+    var updatedAt: Date
+
+    init(
+        id: UUID = UUID(),
+        date: Date = .now,
+        analysis: DietPhotoAnalysisDraft = DietPhotoAnalysisDraft(),
+        images: [MealImageMetadata] = [],
+        source: DietRecordSource = .photo,
+        createdAt: Date = .now,
+        updatedAt: Date? = nil
+    ) {
+        self.id = id
+        self.date = date
+        self.analysis = analysis
+        self.images = images
+        self.source = source
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt ?? createdAt
     }
 }
 
@@ -322,6 +375,8 @@ struct MealRecord: Identifiable, Codable, Equatable {
     var mealType: DietMealType
     var title: String
     var caloriesKcal: Double?
+    var estimatedCaloriesKcal: Int?
+    var portionMultiplier: Double?
     var images: [MealImageMetadata]
     var foods: [RecognizedFoodItem]
     var recognitionStatus: DietRecognitionStatus
@@ -340,6 +395,8 @@ struct MealRecord: Identifiable, Codable, Equatable {
         mealType: DietMealType = .snack,
         title: String = "",
         caloriesKcal: Double? = nil,
+        estimatedCaloriesKcal: Int? = nil,
+        portionMultiplier: Double? = nil,
         images: [MealImageMetadata] = [],
         foods: [RecognizedFoodItem] = [],
         recognitionStatus: DietRecognitionStatus = .notStarted,
@@ -355,6 +412,8 @@ struct MealRecord: Identifiable, Codable, Equatable {
         self.mealType = mealType
         self.title = title
         self.caloriesKcal = caloriesKcal
+        self.estimatedCaloriesKcal = estimatedCaloriesKcal
+        self.portionMultiplier = portionMultiplier
         self.images = images
         self.foods = foods
         self.recognitionStatus = recognitionStatus
@@ -369,6 +428,7 @@ struct MealRecord: Identifiable, Codable, Equatable {
 
     private enum CodingKeys: String, CodingKey {
         case id, date, mealType, title, caloriesKcal, images, foods
+        case estimatedCaloriesKcal, portionMultiplier
         case recognitionStatus, recognitionMessage, note, source, externalIdentifier
         case createdAt, updatedAt
     }
@@ -395,6 +455,8 @@ struct MealRecord: Identifiable, Codable, Equatable {
             ?? ""
         caloriesKcal = try container.decodeIfPresent(Double.self, forKey: .caloriesKcal)
             ?? legacy.decodeIfPresent(Double.self, forKey: .calories)
+        estimatedCaloriesKcal = try container.decodeIfPresent(Int.self, forKey: .estimatedCaloriesKcal)
+        portionMultiplier = try container.decodeIfPresent(Double.self, forKey: .portionMultiplier)
         images = try container.decodeIfPresent([MealImageMetadata].self, forKey: .images) ?? []
         if images.isEmpty {
             if let data = try legacy.decodeIfPresent(Data.self, forKey: .imageData)
@@ -436,6 +498,10 @@ struct MealRecord: Identifiable, Codable, Equatable {
 
     var imageCount: Int { images.count }
 
+    var isCalorieEstimate: Bool {
+        DietCalorieEstimate.isValid(base: estimatedCaloriesKcal, multiplier: portionMultiplier, calories: caloriesKcal)
+    }
+
     /// Convenient projection for SwiftUI collage views that only need bytes.
     var imageData: [Data] { images.compactMap(\.imageData).filter { !$0.isEmpty } }
 
@@ -445,6 +511,10 @@ struct MealRecord: Identifiable, Codable, Equatable {
         var copy = self
         copy.title = String(title.trimmingCharacters(in: .whitespacesAndNewlines).prefix(160))
         copy.caloriesKcal = roundedFinite(caloriesKcal, places: 1)
+        if !isCalorieEstimate {
+            copy.estimatedCaloriesKcal = nil
+            copy.portionMultiplier = nil
+        }
         copy.images = Array(images.map { $0.normalized() }.filter { $0.isWithinStorageLimit }.prefix(6))
         copy.foods = Array(foods.map { $0.normalized() }.filter { !$0.name.isEmpty }.prefix(40))
         copy.recognitionMessage = cleaned(recognitionMessage, limit: 240)
@@ -483,6 +553,14 @@ struct DietDaySummary: Identifiable, Equatable {
     var hasMeals: Bool { mealCount > 0 }
     var hasImages: Bool { imageCount > 0 }
     var hasPendingRecognition: Bool { pendingRecognitionCount > 0 }
+    var hasEstimatedCalories: Bool { records.contains(where: \.isCalorieEstimate) }
+    var knownCaloriesMealCount: Int {
+        records.filter { record in
+            guard let calories = record.calculatedCaloriesKcal else { return false }
+            return calories.isFinite && calories >= 0
+        }.count
+    }
+    var missingCaloriesMealCount: Int { records.count - knownCaloriesMealCount }
 
     init(
         date: Date,

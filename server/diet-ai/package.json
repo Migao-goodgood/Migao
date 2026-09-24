@@ -1,0 +1,12 @@
+{
+  "name": "migao-diet-ai",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Private-test meal-photo calorie analysis service for Migao",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test"
+  }
+}

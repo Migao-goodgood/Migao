@@ -16,15 +16,29 @@ enum DietDisplayMode: String, CaseIterable, Identifiable {
     }
 }
 
-enum DietUploadState: Equatable {
-    case idle
-    case loading
-    case review(DietPhotoAnalysisDraft)
-    case failed(String)
+/// Text input retains an empty value as unknown rather than manufacturing a
+/// zero-calorie meal. Both the capture and edit forms use the same bounds.
+enum DietEntryInputRules {
+    static func normalizedCalories(_ text: String) -> String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: ",", with: ".")
+    }
 
-    var isBusy: Bool {
-        if case .loading = self { return true }
-        return false
+    static func calories(_ text: String, wholeNumbersOnly: Bool = false) -> Double? {
+        let normalized = normalizedCalories(text)
+        let pattern = wholeNumbersOnly ? #"^\d{1,5}$"# : #"^\d{1,5}(?:\.\d)?$"#
+        guard !normalized.isEmpty,
+              normalized.range(of: pattern, options: .regularExpression) != nil,
+              let value = Double(normalized), value.isFinite,
+              (0...20_000).contains(value) else { return nil }
+        return value
+    }
+
+    static var supportedDateRange: ClosedRange<Date> {
+        let calendar = Calendar.current
+        let firstDay = calendar.date(from: DateComponents(year: 2000, month: 1, day: 1)) ?? .distantPast
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: Date())) ?? Date()
+        return firstDay...tomorrow.addingTimeInterval(-0.001)
     }
 }
 
@@ -59,13 +73,7 @@ struct DietMealEditDraft: Equatable {
     }
 
     var caloriesKcal: Double? {
-        let text = normalizedCaloriesText
-        guard !text.isEmpty,
-              text.range(of: #"^\d{1,5}(?:\.\d)?$"#, options: .regularExpression) != nil,
-              let value = Double(text),
-              value.isFinite,
-              (0...20_000).contains(value) else { return nil }
-        return value
+        DietEntryInputRules.calories(caloriesText)
     }
 
     var caloriesInputIsValid: Bool {
@@ -74,13 +82,12 @@ struct DietMealEditDraft: Equatable {
 
     var canSave: Bool {
         caloriesInputIsValid
+            && DietEntryInputRules.supportedDateRange.contains(recordedAt)
             && (hasPreservedContent || !trimmedTitle.isEmpty || caloriesKcal != nil)
     }
 
     private var normalizedCaloriesText: String {
-        caloriesText
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: ",", with: ".")
+        DietEntryInputRules.normalizedCalories(caloriesText)
     }
 }
 

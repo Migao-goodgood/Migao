@@ -191,7 +191,11 @@ private struct HomeView: View {
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(spacing: 16) {
+            VStack(spacing: JournalPageLayout.sectionSpacing) {
+                HomePageHeader(
+                    seasonalNote: SolarTermService.greeting(on: .now),
+                    onRecord: { onRecord(.weight) }
+                )
                 HomePlanCard(
                     state: state,
                     onRecord: { onRecord(.weight) },
@@ -200,16 +204,45 @@ private struct HomeView: View {
                 HomeDietEntry(store: diet, onOpen: onShowDiet)
                 HomeTrendAndHistory(
                     state: state,
-                    onShowTrend: onShowTrend,
-                    onRecord: { onRecord(.weight) }
+                    onShowTrend: onShowTrend
                 )
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 14)
+            .padding(.horizontal, JournalPageLayout.horizontalPadding)
+            .padding(.top, JournalPageLayout.topPadding)
             .padding(.bottom, 122)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .background(Color.platinumPale.ignoresSafeArea())
+        .background(JournalPageLayout.pageBackground.ignoresSafeArea())
+    }
+}
+
+private struct HomePageHeader: View {
+    let seasonalNote: SolarTermGreeting?
+    let onRecord: () -> Void
+
+    var body: some View {
+        JournalPageHeader(title: "轻盈进度", titleColor: Color.ink, details: {
+            if let seasonalNote {
+                Text("今日 · \(seasonalNote.name)")
+                    .roundedFont(11, weight: .bold)
+                    .foregroundStyle(Color.waterAccent)
+                Text(seasonalNote.text)
+                    .roundedFont(11, weight: .medium)
+                    .foregroundStyle(Color.platinumDeep)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }) {
+            JournalAddActionButton(
+                systemName: "scalemass",
+                foregroundColor: Color.waterAccent,
+                surfaceColor: Color.waterAccentPale,
+                badgeColor: Color.jellyPink,
+                borderColor: Color.white,
+                accessibilityLabel: "记录体重",
+                action: onRecord
+            )
+        }
     }
 }
 
@@ -239,16 +272,25 @@ private struct HomeDietEntry: View {
                         Text("还没有记录，去留下一餐吧")
                             .roundedFont(10, weight: .medium)
                             .foregroundStyle(DietPalette.muted)
-                    } else {
+                    } else if summary.knownCaloriesMealCount > 0 {
                         HStack(alignment: .lastTextBaseline, spacing: 4) {
-                            Text(DietNumberText.kcal(summary.totalCaloriesKcal))
+                            Text(DietNumberText.kcal(summary.totalCaloriesKcal, estimated: summary.hasEstimatedCalories))
                                 .roundedFont(19, weight: .heavy)
                                 .monospacedDigit()
                                 .foregroundStyle(DietPalette.pinkDeep)
-                            Text("kcal · \(summary.mealCount) 餐")
+                            Text("kcal 已记录 · \(summary.mealCount) 餐")
                                 .roundedFont(10, weight: .medium)
                                 .foregroundStyle(DietPalette.muted)
                         }
+                        if summary.missingCaloriesMealCount > 0 {
+                            Text("\(summary.missingCaloriesMealCount) 餐热量待补充")
+                                .roundedFont(10, weight: .medium)
+                                .foregroundStyle(DietPalette.muted)
+                        }
+                    } else {
+                        Text("已记录 \(summary.mealCount) 餐 · 热量待补充")
+                            .roundedFont(10, weight: .medium)
+                            .foregroundStyle(DietPalette.muted)
                     }
                 }
 
@@ -268,7 +310,17 @@ private struct HomeDietEntry: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("今日饮食")
-        .accessibilityValue(summary.mealCount == 0 ? "暂无记录" : "摄入 \(DietNumberText.kcal(summary.totalCaloriesKcal)) 千卡，共 \(summary.mealCount) 餐")
+        .accessibilityValue(dietAccessibilityValue)
+    }
+
+    private var dietAccessibilityValue: String {
+        guard summary.mealCount > 0 else { return "暂无记录" }
+        guard summary.knownCaloriesMealCount > 0 else {
+            return "已记录 \(summary.mealCount) 餐，热量待补充"
+        }
+        let pending = summary.missingCaloriesMealCount > 0
+            ? "，\(summary.missingCaloriesMealCount) 餐热量待补充" : ""
+        return "已记录 \(DietNumberText.kcal(summary.totalCaloriesKcal, estimated: summary.hasEstimatedCalories)) 千卡，共 \(summary.mealCount) 餐\(pending)"
     }
 }
 
@@ -279,27 +331,6 @@ private struct HomePlanCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("轻盈进度")
-                        .roundedFont(26, weight: .heavy)
-                        .foregroundStyle(Color.ink)
-                    if let seasonalNote {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("今日 · \(seasonalNote.name)")
-                                .roundedFont(11, weight: .bold)
-                                .foregroundStyle(Color.waterAccent)
-                            Text(seasonalNote.text)
-                                .roundedFont(11, weight: .medium)
-                                .foregroundStyle(Color.platinumDeep)
-                                .lineLimit(2)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        .padding(.top, 1)
-                    }
-                }
-            }
-
             Group {
                 if let startWeight = state.startWeight,
                    let currentWeight = state.currentWeight,
@@ -321,7 +352,7 @@ private struct HomePlanCard: View {
                     )
                 }
             }
-            .padding(.top, seasonalNote == nil ? 8 : 14)
+            .padding(.top, 2)
 
         }
         .padding(.horizontal, 20)
@@ -333,10 +364,6 @@ private struct HomePlanCard: View {
         )
         .overlay(RoundedRectangle(cornerRadius: 27, style: .continuous).stroke(Color.platinumLight, lineWidth: 1))
         .shadow(color: Color.platinum.opacity(0.28), radius: 18, y: 9)
-    }
-
-    private var seasonalNote: SolarTermGreeting? {
-        SolarTermService.greeting(on: .now)
     }
 
 }
@@ -580,7 +607,6 @@ private struct MathUnderbrace: Shape {
 private struct HomeTrendAndHistory: View {
     @ObservedObject var state: AppState
     let onShowTrend: () -> Void
-    let onRecord: () -> Void
 
     var body: some View {
         VStack(alignment: .center, spacing: 14) {
@@ -620,7 +646,7 @@ private struct HomeTrendAndHistory: View {
             .overlay(RoundedRectangle(cornerRadius: 27, style: .continuous).stroke(Color.platinumLight, lineWidth: 1))
             .shadow(color: Color.platinum.opacity(0.2), radius: 15, y: 7)
 
-            WeightCalendarView(state: state, onRecord: onRecord)
+            WeightCalendarView(state: state)
                 .frame(maxWidth: 620)
         }
         .frame(maxWidth: .infinity)

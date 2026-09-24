@@ -44,7 +44,7 @@ struct BodyTrendView: View {
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: JournalPageLayout.sectionSpacing) {
                 header
 
                 if isRecognizing || !statusMessage.isEmpty {
@@ -78,13 +78,13 @@ struct BodyTrendView: View {
                     InBodyEmptyState()
                 }
             }
-            .padding(.horizontal, 18)
-            .padding(.top, 18)
+            .padding(.horizontal, JournalPageLayout.horizontalPadding)
+            .padding(.top, JournalPageLayout.topPadding)
             .padding(.bottom, 123)
             .frame(maxWidth: 720, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .top)
         }
-        .background(BodyEditorial.paper.ignoresSafeArea())
+        .background(JournalPageLayout.pageBackground.ignoresSafeArea())
         .onChange(of: reportPhotoItem) { _, item in
             recognizeReport(item)
         }
@@ -149,15 +149,7 @@ struct BodyTrendView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("身体数据")
-                    .roundedFont(26, weight: .heavy)
-                    .foregroundStyle(BodyEditorial.ink)
-            }
-
-            Spacer(minLength: 8)
-
+        JournalPageHeader(title: "身体数据", titleColor: Color.ink) {
             PhotosPicker(selection: $reportPhotoItem, matching: .images) {
                 AddMediaActionLabel(
                     systemName: isRecognizing ? "hourglass" : "photo",

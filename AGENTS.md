@@ -46,6 +46,12 @@ All contributors, including Codex and human collaborators, must read this file a
 - Diet record edits must preserve the original record identity and media.
   Deletion requires confirmation, and deleted external HealthKit samples must
   not be silently re-imported on the next sync.
+- Diet capture changes must preserve the sequence in `DIET_RECORDING_FLOW.md`:
+  prepared photos -> durable draft -> optional recognition -> explicit meal
+  confirmation. Unknown kcal is not zero; pending drafts never enter totals.
+  A save failure must retain input, and a late analyzer result must not revive
+  a discarded/confirmed capture. Run the diet store/capture/input test scripts
+  when modifying this lifecycle.
 - The iOS app and WeChat mini program are separate entry points; do not remove or replace one while editing the other.
 
 ## Git and release policy

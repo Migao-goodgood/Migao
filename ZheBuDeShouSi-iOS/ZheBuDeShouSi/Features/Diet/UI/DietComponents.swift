@@ -28,6 +28,13 @@ private enum DietDateText {
         formatter.dateFormat = "M/d"
         return formatter
     }()
+
+    static let recordedDate: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "yyyy年M月d日"
+        return formatter
+    }()
 }
 
 enum DietNumberText {
@@ -38,35 +45,44 @@ enum DietNumberText {
         }
         return String(format: "%.1f", rounded)
     }
+
+    static func kcal(_ value: Double, estimated: Bool) -> String {
+        (estimated ? "约 " : "") + kcal(value)
+    }
 }
 
 struct DietPageHeader: View {
     let totalCalories: Int
     let recordedDays: Int
+    var knownCaloriesMealCount: Int = 0
+    var missingCaloriesMealCount: Int = 0
+    var hasEstimatedCalories: Bool = false
     let onAdd: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("饮食日记")
-                        .roundedFont(29, weight: .heavy)
-                        .foregroundStyle(DietPalette.ink)
-                    Text("把每一餐，留成一页温柔的记录")
-                        .roundedFont(12, weight: .medium)
-                        .foregroundStyle(DietPalette.muted)
-                }
-                Spacer(minLength: 12)
+        VStack(alignment: .leading, spacing: JournalPageLayout.sectionSpacing) {
+            JournalPageHeader(title: "饮食日记", titleColor: Color.ink) {
                 DietAddMealButton(action: onAdd)
             }
 
-            HStack(spacing: 0) {
-                DietHeaderMetric(value: "\(totalCalories)", label: "本月 kcal", tint: DietPalette.pinkDeep)
-                Rectangle()
-                    .fill(DietPalette.rule)
-                    .frame(width: 1, height: 28)
-                DietHeaderMetric(value: "\(recordedDays)", label: "记录天数", tint: DietPalette.lilac)
-                Spacer(minLength: 0)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 0) {
+                    DietHeaderMetric(
+                        value: knownCaloriesMealCount > 0 ? DietNumberText.kcal(Double(totalCalories), estimated: hasEstimatedCalories) : (recordedDays > 0 ? "待补充" : "—"),
+                        label: knownCaloriesMealCount > 0 ? "本月已记录 kcal" : "本月热量",
+                        tint: DietPalette.pinkDeep
+                    )
+                    Rectangle()
+                        .fill(DietPalette.rule)
+                        .frame(width: 1, height: 28)
+                    DietHeaderMetric(value: "\(recordedDays)", label: "记录天数", tint: DietPalette.lilac)
+                    Spacer(minLength: 0)
+                }
+                if missingCaloriesMealCount > 0 {
+                    Text("\(missingCaloriesMealCount) 餐热量待补充")
+                        .roundedFont(10, weight: .medium)
+                        .foregroundStyle(DietPalette.muted)
+                }
             }
             .padding(.vertical, 12)
             .padding(.horizontal, 14)
@@ -252,8 +268,8 @@ private struct DietCalendarCell: View {
                     .roundedFont(14, weight: isToday || isSelected ? .heavy : .semibold)
                     .monospacedDigit()
                     .foregroundStyle(dayColor)
-                if let summary, summary.totalCaloriesKcal > 0 {
-                    Text(DietNumberText.kcal(summary.totalCaloriesKcal))
+                if let summary, summary.mealCount > 0 {
+                    Text(summary.knownCaloriesMealCount > 0 ? DietNumberText.kcal(summary.totalCaloriesKcal, estimated: summary.hasEstimatedCalories) : "待补充")
                         .roundedFont(10, weight: .bold)
                         .monospacedDigit()
                         .foregroundStyle(DietPalette.pinkDeep.opacity(0.85))
@@ -284,17 +300,20 @@ private struct DietCalendarCell: View {
     }
 
     private var cellBackground: Color {
-        guard let summary, summary.totalCaloriesKcal > 0 else {
+        guard let summary, summary.mealCount > 0 else {
             return isToday ? DietPalette.pinkWash.opacity(0.55) : JournalCalendarStyle.emptyCellFill
         }
+        guard summary.knownCaloriesMealCount > 0 else { return DietPalette.lilacWash.opacity(0.6) }
         let ratio = min(max(Double(summary.totalCaloriesKcal) / 2_200, 0.14), 1)
         return DietPalette.pinkWash.opacity(0.22 + ratio * 0.48)
     }
 
     private var accessibilityText: String {
         let day = "\(calendar.component(.day, from: date))日"
-        guard let summary, summary.totalCaloriesKcal > 0 else { return "\(day)，暂无饮食记录" }
-        return "\(day)，摄入 \(DietNumberText.kcal(summary.totalCaloriesKcal)) 千卡"
+        guard let summary, summary.mealCount > 0 else { return "\(day)，暂无饮食记录" }
+        guard summary.knownCaloriesMealCount > 0 else { return "\(day)，已记录 \(summary.mealCount) 餐，热量待补充" }
+        let missing = summary.missingCaloriesMealCount > 0 ? "，\(summary.missingCaloriesMealCount) 餐热量待补充" : ""
+        return "\(day)，已记录 \(DietNumberText.kcal(summary.totalCaloriesKcal, estimated: summary.hasEstimatedCalories)) 千卡\(missing)"
     }
 }
 
@@ -337,7 +356,7 @@ private struct DietMosaicDayCard: View {
                     .roundedFont(12, weight: .bold)
                     .foregroundStyle(DietPalette.ink)
                 Spacer(minLength: 3)
-                Text("\(DietNumberText.kcal(summary.totalCaloriesKcal)) kcal")
+                Text(summary.knownCaloriesMealCount > 0 ? "\(DietNumberText.kcal(summary.totalCaloriesKcal, estimated: summary.hasEstimatedCalories)) kcal" : "待补充")
                     .roundedFont(11, weight: .heavy)
                     .monospacedDigit()
                     .foregroundStyle(DietPalette.pinkDeep)
@@ -345,6 +364,11 @@ private struct DietMosaicDayCard: View {
             Text(summary.mealCount == 0 ? "待补充" : "\(summary.mealCount) 餐 · \(summary.imageCount) 张照片")
                 .roundedFont(10, weight: .medium)
                 .foregroundStyle(DietPalette.muted)
+            if summary.missingCaloriesMealCount > 0, summary.knownCaloriesMealCount > 0 {
+                Text("已记录 · \(summary.missingCaloriesMealCount) 餐热量待补充")
+                    .roundedFont(9, weight: .medium)
+                    .foregroundStyle(DietPalette.muted)
+            }
         }
         .padding(10)
         .dietSurface(radius: 18)
@@ -355,11 +379,16 @@ struct DietMealPhotoCollage: View {
     let meals: [MealRecord]
     var compact = false
 
-    private var photoItems: [(data: Data, calories: Double?)] {
+    private var photoItems: [DietMealPhotoItem] {
         meals.flatMap { meal in
             meal.images.compactMap { image in
                 guard let data = image.imageData else { return nil }
-                return (data: data, calories: meal.calculatedCaloriesKcal)
+                return DietMealPhotoItem(
+                    data: data,
+                    calories: meal.calculatedCaloriesKcal,
+                    isEstimated: meal.isCalorieEstimate,
+                    sharesMealTotal: meal.images.count > 1
+                )
             }
         }
     }
@@ -418,23 +447,36 @@ struct DietMealPhotoCollage: View {
     }
 }
 
+private struct DietMealPhotoItem {
+    let data: Data
+    let calories: Double?
+    let isEstimated: Bool
+    let sharesMealTotal: Bool
+
+    var calorieLabel: String {
+        let prefix = sharesMealTotal ? "本餐" : ""
+        guard let calories else { return prefix + "待补充" }
+        return prefix + DietNumberText.kcal(calories, estimated: isEstimated) + " kcal"
+    }
+}
+
 private struct DietPhotoTile: View {
-    let item: (data: Data, calories: Double?)
+    let item: DietMealPhotoItem
     let compact: Bool
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
             DietImageThumbnail(data: item.data, contentMode: .fill)
-            if let calories = item.calories, calories > 0 {
-                Text("\(DietNumberText.kcal(calories)) kcal")
-                    .roundedFont(compact ? 8 : 10, weight: .bold)
-                    .monospacedDigit()
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, compact ? 5 : 7)
-                    .frame(height: compact ? 19 : 23)
-                    .background(Color.black.opacity(0.48), in: Capsule())
-                    .padding(compact ? 5 : 8)
-            }
+            Text(item.calorieLabel)
+                .roundedFont(compact ? 8 : 10, weight: .bold)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .foregroundStyle(.white)
+                .padding(.horizontal, compact ? 5 : 7)
+                .frame(height: compact ? 19 : 23)
+                .background(Color.black.opacity(0.48), in: Capsule())
+                .padding(compact ? 5 : 8)
         }
         .clipped()
     }
@@ -531,7 +573,7 @@ private struct DietMealRow: View {
 
     private var mealAccessibilityValue: String {
         guard let calories = meal.calculatedCaloriesKcal else { return "未填写热量" }
-        return "\(DietNumberText.kcal(calories)) 千卡"
+        return "\(DietNumberText.kcal(calories, estimated: meal.isCalorieEstimate)) 千卡"
     }
 
     private var rowContent: some View {
@@ -545,7 +587,7 @@ private struct DietMealRow: View {
                     Text(meal.mealType.title)
                         .roundedFont(10, weight: .bold)
                         .foregroundStyle(DietPalette.pinkDeep)
-                    Text(meal.title.isEmpty ? "待命名的一餐" : meal.title)
+                    Text(meal.title.isEmpty ? (meal.images.isEmpty ? "饮食记录" : "饮食照片") : meal.title)
                         .roundedFont(14, weight: .bold)
                         .foregroundStyle(DietPalette.ink)
                         .lineLimit(1)
@@ -564,11 +606,11 @@ private struct DietMealRow: View {
             }
             Spacer(minLength: 4)
             VStack(alignment: .trailing, spacing: 3) {
-                Text(meal.calculatedCaloriesKcal.map(DietNumberText.kcal) ?? "--")
-                    .roundedFont(16, weight: .heavy)
+                Text(meal.calculatedCaloriesKcal.map { DietNumberText.kcal($0, estimated: meal.isCalorieEstimate) } ?? "待补充")
+                    .roundedFont(meal.calculatedCaloriesKcal == nil ? 12 : 16, weight: .heavy)
                     .monospacedDigit()
                     .foregroundStyle(DietPalette.pinkDeep)
-                Text("kcal")
+                Text(meal.calculatedCaloriesKcal == nil ? "热量" : "kcal")
                     .roundedFont(9, weight: .medium)
                     .foregroundStyle(DietPalette.muted)
             }
@@ -606,16 +648,7 @@ private struct DietSwipeActionRow<Content: View>: View {
                 .allowsHitTesting(isOpen)
                 .accessibilityHidden(!isOpen)
 
-            content()
-                .frame(maxWidth: .infinity)
-                .frame(height: rowHeight)
-                .contentShape(Rectangle())
-                .offset(x: contentOffset)
-                .onTapGesture {
-                    guard isOpen else { return }
-                    close()
-                }
-                .simultaneousGesture(swipeGesture)
+            foregroundContent
         }
         .frame(height: rowHeight)
         .background(DietPalette.lilacWash.opacity(0.72), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -631,8 +664,24 @@ private struct DietSwipeActionRow<Content: View>: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityValue(accessibilityValue)
+        .accessibilityHint("点按编辑，或向右轻扫显示编辑和删除")
+        .accessibilityAction { performEdit() }
         .accessibilityAction(named: "编辑这条饮食记录", performEdit)
         .accessibilityAction(named: "删除这条饮食记录", performRemove)
+    }
+
+    private var foregroundContent: some View {
+        content()
+            .frame(maxWidth: .infinity)
+            .frame(height: rowHeight)
+            .contentShape(Rectangle())
+            .offset(x: contentOffset)
+            .onTapGesture(perform: tappedContent)
+            .simultaneousGesture(swipeGesture)
+    }
+
+    private func tappedContent() {
+        if isOpen { close() } else { performEdit() }
     }
 
     private var actionButtons: some View {
@@ -722,6 +771,9 @@ private struct DietSwipeActionRow<Content: View>: View {
 struct DietKcalSummary: View {
     let totalCalories: Double
     let mealCount: Int
+    var knownCaloriesMealCount: Int = 0
+    var missingCaloriesMealCount: Int = 0
+    var hasEstimatedCalories: Bool = false
     let isToday: Bool
 
     var body: some View {
@@ -735,17 +787,24 @@ struct DietKcalSummary: View {
                     .foregroundStyle(DietPalette.pinkDeep)
             }
             VStack(alignment: .leading, spacing: 3) {
-                Text(isToday ? "今天的摄入" : "当天的摄入")
+                Text(isToday ? "今日已记录" : "当天已记录")
                     .roundedFont(11, weight: .medium)
                     .foregroundStyle(DietPalette.muted)
                 HStack(alignment: .lastTextBaseline, spacing: 5) {
-                    Text(DietNumberText.kcal(totalCalories))
-                        .roundedFont(28, weight: .heavy)
+                    Text(knownCaloriesMealCount > 0 ? DietNumberText.kcal(totalCalories, estimated: hasEstimatedCalories) : (mealCount > 0 ? "待补充" : "暂无记录"))
+                        .roundedFont(knownCaloriesMealCount > 0 ? 28 : 22, weight: .heavy)
                         .monospacedDigit()
                         .foregroundStyle(DietPalette.ink)
-                    Text("kcal")
-                        .roundedFont(11, weight: .bold)
-                        .foregroundStyle(DietPalette.pinkDeep)
+                    if knownCaloriesMealCount > 0 {
+                        Text("kcal")
+                            .roundedFont(11, weight: .bold)
+                            .foregroundStyle(DietPalette.pinkDeep)
+                    }
+                }
+                if missingCaloriesMealCount > 0 {
+                    Text("\(missingCaloriesMealCount) 餐热量待补充")
+                        .roundedFont(10, weight: .medium)
+                        .foregroundStyle(DietPalette.muted)
                 }
             }
             Spacer(minLength: 4)
@@ -839,7 +898,14 @@ struct DietDayDetailModal: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 14) {
-                    DietKcalSummary(totalCalories: summary.totalCaloriesKcal, mealCount: summary.mealCount, isToday: calendar.isDateInToday(date))
+                    DietKcalSummary(
+                        totalCalories: summary.totalCaloriesKcal,
+                        mealCount: summary.mealCount,
+                        knownCaloriesMealCount: summary.knownCaloriesMealCount,
+                        missingCaloriesMealCount: summary.missingCaloriesMealCount,
+                        hasEstimatedCalories: summary.hasEstimatedCalories,
+                        isToday: calendar.isDateInToday(date)
+                    )
 
                     DietDayUploadAction(
                         title: meals.isEmpty ? "添加饮食照片" : "继续添加照片",
@@ -904,76 +970,83 @@ struct DietMealEditModal: View {
             }
             .padding(.bottom, 18)
 
-            VStack(alignment: .leading, spacing: 16) {
-                editField(title: "餐次") {
-                    Picker("餐次", selection: $draft.mealType) {
-                        ForEach(DietMealType.allCases) { mealType in
-                            Text(mealType.title).tag(mealType)
-                        }
-                    }
-                    .labelsHidden()
-                    .pickerStyle(.segmented)
-                }
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 14) {
+                    DietRecordDatePicker(date: $draft.recordedAt)
 
-                editField(title: "名称") {
-                    TextField("可留空", text: $draft.title)
-                        .roundedFont(13, weight: .medium)
-                        .textFieldStyle(.plain)
+                    editField(title: "餐次") {
+                        Picker("餐次", selection: $draft.mealType) {
+                            ForEach(DietMealType.allCases) { mealType in
+                                Text(mealType.title).tag(mealType)
+                            }
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.segmented)
+                    }
+
+                    editField(title: "名称（选填）") {
+                        TextField("可留空", text: $draft.title)
+                            .roundedFont(13, weight: .medium)
+                            .textFieldStyle(.plain)
+                            .padding(.horizontal, 12)
+                            .frame(height: 42)
+                            .background(Color.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .stroke(DietPalette.rule, lineWidth: 1)
+                            }
+                    }
+
+                    editField(title: "热量（选填）") {
+                        HStack(spacing: 6) {
+                            TextField("待补充", text: $draft.caloriesText)
+                                .roundedFont(18, weight: .heavy)
+                                .monospacedDigit()
+                                .textFieldStyle(.plain)
+                                #if os(iOS)
+                                .keyboardType(.decimalPad)
+                                #endif
+                            Text("kcal")
+                                .roundedFont(11, weight: .bold)
+                                .foregroundStyle(DietPalette.pinkDeep)
+                        }
                         .padding(.horizontal, 12)
-                        .frame(height: 42)
+                        .frame(height: 44)
                         .background(Color.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         .overlay {
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .stroke(DietPalette.rule, lineWidth: 1)
+                                .stroke(draft.caloriesInputIsValid ? DietPalette.rule : DietPalette.pinkDeep, lineWidth: 1)
                         }
-                }
+                    }
 
-                editField(title: "日期与时间") {
-                    DatePicker(
-                        "日期与时间",
-                        selection: $draft.recordedAt,
-                        in: earliestEditableDate...max(Date(), draft.recordedAt),
-                        displayedComponents: [.date, .hourAndMinute]
-                    )
-                    .labelsHidden()
-                    .datePickerStyle(.compact)
-                    .tint(DietPalette.pinkDeep)
-                }
+                    if !draft.caloriesInputIsValid {
+                        Label("请输入 0 至 20000，最多保留一位小数", systemImage: "exclamationmark.circle.fill")
+                            .roundedFont(11, weight: .medium)
+                            .foregroundStyle(DietPalette.pinkDeep)
+                    } else if draft.caloriesKcal == nil {
+                        Text("留空后会标为待补充，不会计作 0 kcal。")
+                            .roundedFont(10, weight: .medium)
+                            .foregroundStyle(DietPalette.muted)
+                    }
 
-                editField(title: "热量") {
-                    HStack(spacing: 6) {
-                        TextField("未填写", text: $draft.caloriesText)
-                            .roundedFont(18, weight: .heavy)
-                            .monospacedDigit()
-                            .textFieldStyle(.plain)
-                            #if os(iOS)
-                            .keyboardType(.decimalPad)
-                            #endif
-                        Text("kcal")
-                            .roundedFont(11, weight: .bold)
+                    if !DietEntryInputRules.supportedDateRange.contains(draft.recordedAt) {
+                        Label("请选择 2000 年 1 月 1 日至今天之间的日期", systemImage: "calendar.badge.exclamationmark")
+                            .roundedFont(11, weight: .medium)
                             .foregroundStyle(DietPalette.pinkDeep)
                     }
-                    .padding(.horizontal, 12)
-                    .frame(height: 44)
-                    .background(Color.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(draft.caloriesInputIsValid ? DietPalette.rule : DietPalette.pinkDeep, lineWidth: 1)
+
+                    if !errorMessage.isEmpty {
+                        Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                            .roundedFont(11, weight: .medium)
+                            .foregroundStyle(DietPalette.pinkDeep)
                     }
                 }
-
-                if !draft.caloriesInputIsValid {
-                    Label("请输入 0 至 20000，最多保留一位小数", systemImage: "exclamationmark.circle.fill")
-                        .roundedFont(10, weight: .medium)
-                        .foregroundStyle(DietPalette.pinkDeep)
-                }
-
-                if !errorMessage.isEmpty {
-                    Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                        .roundedFont(10, weight: .medium)
-                        .foregroundStyle(DietPalette.pinkDeep)
-                }
+                .padding(.bottom, 4)
             }
+            .frame(maxHeight: 430)
+            #if os(iOS)
+            .scrollDismissesKeyboard(.interactively)
+            #endif
 
             HStack(spacing: 9) {
                 Button("取消", action: onDismiss)
@@ -1004,10 +1077,6 @@ struct DietMealEditModal: View {
         }
         .shadow(color: DietPalette.ink.opacity(0.16), radius: 28, y: 14)
         .onChange(of: draft.caloriesText) { _, _ in errorMessage = "" }
-    }
-
-    private var earliestEditableDate: Date {
-        Calendar(identifier: .gregorian).date(from: DateComponents(year: 2000, month: 1, day: 1)) ?? .distantPast
     }
 
     private func editField<Content: View>(
@@ -1108,133 +1177,500 @@ private struct DietDayUploadAction: View {
     }
 }
 
+/// Pending captures remain separate from confirmed meals and their totals.
+struct DietDraftShelf: View {
+    let drafts: [DietCaptureDraft]
+    let onResume: (DietCaptureDraft) -> Void
+    let onRemove: (DietCaptureDraft) -> Void
+
+    var body: some View {
+        if !drafts.isEmpty {
+            VStack(alignment: .leading, spacing: 9) {
+                HStack(spacing: 6) {
+                    Text("待确认")
+                        .roundedFont(14, weight: .bold)
+                        .foregroundStyle(DietPalette.ink)
+                    Text("\(drafts.count)")
+                        .roundedFont(10, weight: .bold)
+                        .foregroundStyle(DietPalette.lilac)
+                    Spacer()
+                    Text("尚未计入日历")
+                        .roundedFont(10, weight: .medium)
+                        .foregroundStyle(DietPalette.muted)
+                }
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 9) {
+                        ForEach(drafts.sorted(by: { $0.updatedAt > $1.updatedAt })) { capture in
+                            HStack(spacing: 0) {
+                                Button { onResume(capture) } label: {
+                                    HStack(spacing: 9) {
+                                        DietImageThumbnail(data: capture.images.first?.imageData)
+                                            .frame(width: 44, height: 44)
+                                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text("\(DietDateText.short.string(from: capture.date)) · \(capture.analysis.mealType.title)")
+                                                .roundedFont(12, weight: .bold)
+                                                .foregroundStyle(DietPalette.ink)
+                                            Text("\(capture.images.count) 张照片 · 继续确认")
+                                                .roundedFont(10, weight: .medium)
+                                                .foregroundStyle(DietPalette.muted)
+                                        }
+                                    }
+                                    .padding(.vertical, 9)
+                                    .padding(.leading, 9)
+                                    .padding(.trailing, 6)
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel("继续确认 \(DietDateText.dayDetail.string(from: capture.date)) 的\(capture.analysis.mealType.title)，\(capture.images.count) 张照片")
+
+                                Button(role: .destructive) { onRemove(capture) } label: {
+                                    Image(systemName: "xmark")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundStyle(DietPalette.muted)
+                                        .frame(width: 44, height: 54)
+                                        .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel("删除这份待确认草稿")
+                            }
+                            .background(Color.white, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .stroke(DietPalette.rule, lineWidth: 1)
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(13)
+            .background(DietPalette.lilacWash.opacity(0.5), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+    }
+}
+
+private struct DietRecordDatePicker: View {
+    @Binding var date: Date
+    @State private var isExpanded = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            #if os(iOS)
+            Button {
+                withAnimation(.easeInOut(duration: 0.18)) { isExpanded.toggle() }
+            } label: {
+                HStack {
+                    Label("记录日期", systemImage: "calendar")
+                        .foregroundStyle(DietPalette.muted)
+                    Spacer(minLength: 8)
+                    Text(DietDateText.recordedDate.string(from: date))
+                        .foregroundStyle(DietPalette.ink)
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(DietPalette.pinkDeep)
+                }
+                .roundedFont(12, weight: .semibold)
+                .frame(minHeight: 43)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("展开后滑动选择日期")
+
+            if isExpanded {
+                DatePicker("记录日期", selection: $date, in: DietEntryInputRules.supportedDateRange, displayedComponents: .date)
+                    .datePickerStyle(.wheel)
+                    .labelsHidden()
+                    .environment(\.locale, Locale(identifier: "zh_CN"))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 136)
+                    .clipped()
+            }
+            #else
+            DatePicker("记录日期", selection: $date, in: DietEntryInputRules.supportedDateRange, displayedComponents: .date)
+                .datePickerStyle(.compact)
+                .roundedFont(12, weight: .semibold)
+                .foregroundStyle(DietPalette.ink)
+                .frame(minHeight: 43)
+            #endif
+        }
+        .tint(DietPalette.pinkDeep)
+        .padding(.horizontal, 11)
+        .background(DietPalette.lilacWash.opacity(0.62), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
 struct DietRecognitionReviewCard: View {
     @Binding var draft: DietPhotoAnalysisDraft
+    @Binding var recordedAt: Date
     let imageData: [Data]
     let isLoading: Bool
     let errorMessage: String?
     let onConfirm: () -> Void
     let onCancel: () -> Void
+    let onDiscard: () -> Void
+    let onRetry: (() -> Void)?
+
+    @State private var caloriesText: String
+    @State private var showsManualCalories = false
+    @State private var showsName = false
+    @State private var portionError: String?
+
+    init(
+        draft: Binding<DietPhotoAnalysisDraft>,
+        recordedAt: Binding<Date>,
+        imageData: [Data],
+        isLoading: Bool,
+        errorMessage: String?,
+        onConfirm: @escaping () -> Void,
+        onCancel: @escaping () -> Void,
+        onDiscard: @escaping () -> Void,
+        onRetry: (() -> Void)? = nil
+    ) {
+        _draft = draft
+        _recordedAt = recordedAt
+        self.imageData = imageData
+        self.isLoading = isLoading
+        self.errorMessage = errorMessage
+        self.onConfirm = onConfirm
+        self.onCancel = onCancel
+        self.onDiscard = onDiscard
+        self.onRetry = onRetry
+        _caloriesText = State(initialValue: draft.wrappedValue.caloriesKcal.map(String.init) ?? "")
+    }
+
+    private var caloriesInputIsValid: Bool {
+        DietEntryInputRules.normalizedCalories(caloriesText).isEmpty
+            || DietEntryInputRules.calories(caloriesText, wholeNumbersOnly: true) != nil
+    }
+
+    private var canSave: Bool {
+        !imageData.isEmpty && caloriesInputIsValid && DietEntryInputRules.supportedDateRange.contains(recordedAt)
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 9) {
-                ZStack {
-                    Circle().fill(DietPalette.lilacWash).frame(width: 35, height: 35)
-                    Image(systemName: isLoading ? "sparkles" : "checkmark.seal.fill")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(DietPalette.lilac)
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(isLoading ? "正在整理这餐" : "识别结果待确认")
-                        .roundedFont(14, weight: .heavy)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("记录饮食")
+                        .roundedFont(21, weight: .heavy)
                         .foregroundStyle(DietPalette.ink)
-                    Text(isLoading ? "照片只在当前设备处理，不会自动保存原图" : (draft.sourceLabel.isEmpty ? "请核对名称和热量" : draft.sourceLabel))
+                    Text("识别餐食热量，按实际份量确认")
+                        .roundedFont(11, weight: .medium)
+                        .foregroundStyle(DietPalette.muted)
+                }
+                Spacer(minLength: 5)
+                Button(action: onCancel) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(DietPalette.muted)
+                        .frame(width: 34, height: 34)
+                        .background(DietPalette.lilacWash, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .disabled(!caloriesInputIsValid)
+                .accessibilityLabel(imageData.isEmpty ? "取消读取照片" : "保存草稿并关闭")
+            }
+            .padding(.bottom, 16)
+
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 13) {
+                    if !imageData.isEmpty {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 7) {
+                                ForEach(Array(imageData.enumerated()), id: \.offset) { index, data in
+                                    DietImageThumbnail(data: data)
+                                        .frame(width: 78, height: 78)
+                                        .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+                                        .accessibilityLabel("第 \(index + 1) 张饮食照片")
+                                }
+                            }
+                        }
+                    }
+
+                    calorieReview
+
+                    recordDetails
+                        .disabled(isLoading)
+
+                    if !caloriesInputIsValid {
+                        Label("请输入 0 至 20000 的整数，或清空后稍后补充", systemImage: "exclamationmark.circle.fill")
+                            .roundedFont(11, weight: .medium)
+                            .foregroundStyle(DietPalette.pinkDeep)
+                    }
+
+                    if let errorMessage, !errorMessage.isEmpty {
+                        Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                            .roundedFont(11, weight: .medium)
+                            .foregroundStyle(DietPalette.pinkDeep)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(.bottom, 4)
+            }
+            .frame(maxHeight: 440)
+            #if os(iOS)
+            .scrollDismissesKeyboard(.interactively)
+            #endif
+
+            HStack(spacing: 9) {
+                Button(imageData.isEmpty ? "取消" : "稍后确认", action: onCancel)
+                    .roundedFont(13, weight: .bold)
+                    .foregroundStyle(DietPalette.lilac)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .background(DietPalette.lilacWash, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+                    .buttonStyle(.plain)
+                    .disabled(!caloriesInputIsValid)
+                    .opacity(caloriesInputIsValid ? 1 : 0.45)
+
+                Button(isLoading && !imageData.isEmpty ? "保存照片" : "保存", action: onConfirm)
+                    .roundedFont(13, weight: .bold)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .background(DietPalette.pink, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+                    .buttonStyle(.plain)
+                    .disabled(!canSave)
+                    .opacity(canSave ? 1 : 0.45)
+            }
+            .padding(.top, 14)
+
+            if !imageData.isEmpty {
+                Button("删除这份草稿", role: .destructive, action: onDiscard)
+                    .roundedFont(10, weight: .medium)
+                    .foregroundStyle(DietPalette.muted)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 32)
+                    .buttonStyle(.plain)
+                    .padding(.top, 3)
+            }
+        }
+        .padding(18)
+        .dietSurface(radius: 27)
+        .onChange(of: draft.caloriesKcal) { _, calories in
+            // The analyzer may finish after this card has appeared. User text
+            // remains untouched while it is invalid and awaits correction.
+            guard isLoading || caloriesInputIsValid else { return }
+            caloriesText = calories.map(String.init) ?? ""
+        }
+        .onChange(of: isLoading) { _, loading in
+            if loading {
+                showsManualCalories = false
+                portionError = nil
+            }
+        }
+    }
+
+    private var calorieReview: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 7) {
+                Label(draft.isCalorieEstimate ? "AI 热量估算" : "本餐热量", systemImage: "sparkles")
+                    .roundedFont(11, weight: .bold)
+                    .foregroundStyle(DietPalette.pinkDeep)
+                Spacer(minLength: 6)
+                if let onRetry, !imageData.isEmpty, !isLoading {
+                    Button {
+                        caloriesText = draft.caloriesKcal.map(String.init) ?? ""
+                        portionError = nil
+                        onRetry()
+                    } label: {
+                        Label("重新识图", systemImage: "arrow.clockwise")
+                            .roundedFont(10, weight: .semibold)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(DietPalette.lilac)
+                    .frame(minHeight: 28)
+                }
+            }
+
+            calorieHero
+
+            Text(sourceDescription)
+                .roundedFont(11, weight: .medium)
+                .foregroundStyle(DietPalette.muted)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if draft.isCalorieEstimate, !isLoading {
+                VStack(alignment: .leading, spacing: 7) {
+                    Text("实际食用份量")
+                        .roundedFont(10, weight: .semibold)
+                        .foregroundStyle(DietPalette.muted)
+                    Picker("实际食用份量", selection: portionBinding) {
+                        Text("半份").tag(0.5)
+                        Text("图中份量").tag(1.0)
+                        Text("1.5 份").tag(1.5)
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                    Text("照片估算有误差，份量和烹调用油会影响热量。")
                         .roundedFont(10, weight: .medium)
                         .foregroundStyle(DietPalette.muted)
                 }
-                Spacer(minLength: 4)
-                if isLoading { ProgressView().controlSize(.small).tint(DietPalette.lilac) }
             }
 
-            if !imageData.isEmpty {
-                HStack(spacing: 5) {
-                    ForEach(Array(imageData.prefix(4).enumerated()), id: \.offset) { _, data in
-                        DietImageThumbnail(data: data, contentMode: .fill)
-                            .frame(width: 44, height: 44)
-                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    }
-                    if imageData.count > 4 {
-                        Text("+\(imageData.count - 4)")
-                            .roundedFont(11, weight: .bold)
-                            .foregroundStyle(DietPalette.muted)
-                    }
-                }
-            }
-
-            HStack(alignment: .bottom, spacing: 10) {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("这餐叫什么")
-                        .roundedFont(10, weight: .bold)
-                        .foregroundStyle(DietPalette.muted)
-                    TextField("例如：番茄鸡蛋面", text: $draft.title)
-                        .roundedFont(13, weight: .medium)
-                        .textFieldStyle(.plain)
-                        .padding(.horizontal, 10)
-                        .frame(height: 39)
-                        .background(Color.white, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).stroke(DietPalette.rule, lineWidth: 1))
-                }
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("热量")
-                        .roundedFont(10, weight: .bold)
-                        .foregroundStyle(DietPalette.muted)
-                    HStack(spacing: 3) {
-                        TextField("0", value: caloriesBinding, format: .number)
-                            .roundedFont(16, weight: .heavy)
-                            .monospacedDigit()
-                            .textFieldStyle(.plain)
-                            #if os(iOS)
-                            .keyboardType(.numberPad)
-                            #endif
-                            .frame(width: 58)
-                        Text("kcal")
-                            .roundedFont(10, weight: .bold)
-                            .foregroundStyle(DietPalette.pinkDeep)
-                    }
-                    .padding(.horizontal, 9)
-                    .frame(height: 39)
-                    .background(Color.white, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).stroke(DietPalette.rule, lineWidth: 1))
-                }
-            }
-
-            if !draft.foods.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        ForEach(draft.foods) { food in
-                            Text(food.name)
-                                .roundedFont(10, weight: .bold)
-                                .foregroundStyle(DietPalette.ink)
-                                .padding(.horizontal, 9)
-                                .frame(height: 26)
-                                .background(DietPalette.mintWash, in: Capsule())
-                        }
-                    }
-                }
-            }
-
-            if let errorMessage, !errorMessage.isEmpty {
-                Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                    .roundedFont(10, weight: .medium)
+            if let portionError {
+                Text(portionError)
+                    .roundedFont(11, weight: .medium)
                     .foregroundStyle(DietPalette.pinkDeep)
             }
 
-            HStack(spacing: 9) {
-                Button("稍后确认", action: onCancel)
-                    .roundedFont(12, weight: .bold)
-                    .foregroundStyle(DietPalette.muted)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 42)
-                    .background(DietPalette.lilacWash, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
-                Button("确认加入", action: onConfirm)
-                    .roundedFont(12, weight: .bold)
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 42)
-                    .background(DietPalette.pink, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
-                    .disabled(isLoading || !draft.isReadyForConfirmation)
-                    .opacity(isLoading || !draft.isReadyForConfirmation ? 0.45 : 1)
+            if !isLoading {
+                DisclosureGroup(isExpanded: $showsManualCalories) {
+                    manualCaloriesField
+                        .padding(.top, 7)
+                } label: {
+                    Text(draft.caloriesKcal == nil ? "手动补充热量（选填）" : "手动调整热量")
+                        .roundedFont(11, weight: .semibold)
+                        .foregroundStyle(DietPalette.pinkDeep)
+                }
+                .tint(DietPalette.pinkDeep)
             }
         }
-        .padding(15)
-        .dietSurface(radius: 20)
+        .padding(14)
+        .background(DietPalette.pinkWash.opacity(0.62), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
-    private var caloriesBinding: Binding<Int> {
+    private var calorieHero: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            if isLoading {
+                ProgressView().controlSize(.small).tint(DietPalette.lilac)
+                Text(imageData.isEmpty ? "读取照片中" : "识图中")
+                    .roundedFont(25, weight: .heavy)
+                    .foregroundStyle(DietPalette.ink)
+            } else if let calories = draft.caloriesKcal {
+                if draft.isCalorieEstimate {
+                    Text("约")
+                        .roundedFont(16, weight: .semibold)
+                        .foregroundStyle(DietPalette.pinkDeep)
+                }
+                Text("\(calories)")
+                    .roundedFont(38, weight: .heavy)
+                    .monospacedDigit()
+                    .foregroundStyle(DietPalette.ink)
+                Text("kcal")
+                    .roundedFont(13, weight: .bold)
+                    .foregroundStyle(DietPalette.pinkDeep)
+                if imageData.count > 1 {
+                    Text("本餐合计")
+                        .roundedFont(10, weight: .medium)
+                        .foregroundStyle(DietPalette.muted)
+                }
+            } else {
+                Text("待识别")
+                    .roundedFont(28, weight: .heavy)
+                    .foregroundStyle(DietPalette.ink)
+            }
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var sourceDescription: String {
+        if isLoading {
+            return imageData.isEmpty ? "照片读取完成后会开始分析。" : "正在分析餐食与份量，也可以先保存照片。"
+        }
+        let source = draft.sourceLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !source.isEmpty { return source }
+        return draft.caloriesKcal == nil ? "暂未识别到热量，照片可以先保存。" : "请按实际食用情况确认热量。"
+    }
+
+    private var recordDetails: some View {
+        VStack(alignment: .leading, spacing: 13) {
+            DietRecordDatePicker(date: $recordedAt)
+
+            reviewField(title: "餐次") {
+                Picker("餐次", selection: $draft.mealType) {
+                    ForEach(DietMealType.allCases) { mealType in
+                        Text(mealType.title).tag(mealType)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.segmented)
+            }
+
+            DisclosureGroup(isExpanded: $showsName) {
+                TextField("可留空", text: $draft.title)
+                    .roundedFont(13, weight: .medium)
+                    .textFieldStyle(.plain)
+                    .padding(.horizontal, 11)
+                    .frame(height: 42)
+                    .background(Color.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(DietPalette.rule, lineWidth: 1))
+                    .padding(.top, 7)
+            } label: {
+                Text("名称（选填）")
+                    .roundedFont(11, weight: .medium)
+                    .foregroundStyle(DietPalette.muted)
+            }
+            .tint(DietPalette.muted)
+        }
+    }
+
+    private var manualCaloriesField: some View {
+        HStack(spacing: 6) {
+            TextField("留空可稍后补充", text: caloriesBinding)
+                .roundedFont(20, weight: .heavy)
+                .monospacedDigit()
+                .textFieldStyle(.plain)
+                #if os(iOS)
+                .keyboardType(.numberPad)
+                #endif
+            Text("kcal")
+                .roundedFont(11, weight: .bold)
+                .foregroundStyle(DietPalette.pinkDeep)
+        }
+        .padding(.horizontal, 11)
+        .frame(height: 44)
+        .background(Color.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(caloriesInputIsValid ? DietPalette.rule : DietPalette.pinkDeep, lineWidth: 1)
+        }
+    }
+
+    private var portionBinding: Binding<Double> {
         Binding(
-            get: { draft.caloriesKcal ?? 0 },
-            set: { draft.caloriesKcal = max(0, $0) }
+            get: { draft.portionMultiplier ?? 1 },
+            set: { multiplier in
+                guard let base = draft.estimatedCaloriesKcal, [0.5, 1, 1.5].contains(multiplier) else { return }
+                let adjustedCalories = Int((Double(base) * multiplier).rounded())
+                guard (0...20_000).contains(adjustedCalories) else {
+                    portionError = "调整后超出可记录的热量范围，请手动填写。"
+                    return
+                }
+                var adjusted = draft
+                adjusted.caloriesKcal = adjustedCalories
+                adjusted.portionMultiplier = multiplier
+                caloriesText = String(adjustedCalories)
+                portionError = nil
+                draft = adjusted
+            }
         )
+    }
+
+    private var caloriesBinding: Binding<String> {
+        Binding(
+            get: { caloriesText },
+            set: { text in
+                caloriesText = text
+                // Invalid input must not silently preserve the previous kcal.
+                var adjusted = draft
+                adjusted.caloriesKcal = DietEntryInputRules.calories(text, wholeNumbersOnly: true).map(Int.init)
+                adjusted.estimatedCaloriesKcal = nil
+                adjusted.portionMultiplier = nil
+                adjusted.sourceLabel = adjusted.caloriesKcal == nil ? "热量待补充，可重新识图。" : "手动填写热量"
+                portionError = nil
+                draft = adjusted
+            }
+        )
+    }
+
+    private func reviewField<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .roundedFont(10, weight: .bold)
+                .foregroundStyle(DietPalette.muted)
+            content()
+        }
     }
 }

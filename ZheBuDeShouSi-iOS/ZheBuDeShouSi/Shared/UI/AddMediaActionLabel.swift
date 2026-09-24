@@ -1,5 +1,72 @@
 import SwiftUI
 
+/// Shared page-level rhythm for the first three journal surfaces.
+enum JournalPageLayout {
+    static let horizontalPadding: CGFloat = 16
+    static let topPadding: CGFloat = 16
+    static let sectionSpacing: CGFloat = 16
+    static let headerSpacing: CGFloat = 12
+    static let headerActionSize: CGFloat = 58
+    static let titleSize: CGFloat = 29
+    static let pageBackground = Color.platinumPale
+}
+
+/// Keeps the home, diet, and body-data page headers on the same visual grid.
+/// The action remains generic because Diet and Home use a button while the
+/// body-data page wraps its action in PhotosPicker. Optional title details
+/// (such as the home's solar-term note) stay in the same title column.
+struct JournalPageHeader<Action: View, Details: View>: View {
+    let title: String
+    let titleColor: Color
+    private let details: () -> Details
+    private let action: () -> Action
+
+    init(
+        title: String,
+        titleColor: Color,
+        @ViewBuilder details: @escaping () -> Details,
+        @ViewBuilder action: @escaping () -> Action
+    ) {
+        self.title = title
+        self.titleColor = titleColor
+        self.details = details
+        self.action = action
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: JournalPageLayout.headerSpacing) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .roundedFont(JournalPageLayout.titleSize, weight: .heavy)
+                    .foregroundStyle(titleColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.84)
+                    .accessibilityHeading(.h1)
+                details()
+            }
+
+            Spacer(minLength: JournalPageLayout.headerSpacing)
+            action()
+                .frame(
+                    width: JournalPageLayout.headerActionSize,
+                    height: JournalPageLayout.headerActionSize,
+                    alignment: .top
+                )
+        }
+        .frame(maxWidth: .infinity, minHeight: JournalPageLayout.headerActionSize, alignment: .top)
+    }
+}
+
+extension JournalPageHeader where Details == EmptyView {
+    init(
+        title: String,
+        titleColor: Color,
+        @ViewBuilder action: @escaping () -> Action
+    ) {
+        self.init(title: title, titleColor: titleColor, details: { EmptyView() }, action: action)
+    }
+}
+
 /// Shared compact label for photo-backed add actions.
 ///
 /// Feature views own the actual button or PhotosPicker interaction and supply
