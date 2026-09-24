@@ -4,19 +4,14 @@ import PhotosUI
 /// Food-journal presentation boundary.
 ///
 /// The view owns only selection, picker and review state. `DietStore` remains
-/// the single mutation/persistence boundary, while an optional analyzer can
-/// be supplied by the app composition root for a local Vision or backend AI
-/// implementation.
+/// the single mutation/persistence boundary. Photo text recognition runs only
+/// through the coordinator's on-device Vision implementation.
 struct DietView: View {
     @ObservedObject var store: DietStore
 
     private let calendar: Calendar
-    private let remoteEndpoint: URL?
     @StateObject private var capture: DietCaptureCoordinator
     @Environment(\.scenePhase) private var scenePhase
-    @AppStorage("zhebudeshousi.dietAI.consentEndpoint") private var consentEndpoint = ""
-    @State private var showsAIConsent = false
-    @State private var showsAISettings = false
 
     @State private var displayMode = DietDisplayMode.calendar
     @State private var month: Date
@@ -36,27 +31,14 @@ struct DietView: View {
 
     init(
         store: DietStore,
-        analyzer: DietPhotoAnalysisHandler? = nil,
-        remoteAnalyzer: DietAIPhotoAnalyzer = DietAIPhotoAnalyzer(),
         calendar: Calendar = .current
     ) {
         self.store = store
         var localCalendar = calendar
         localCalendar.locale = calendar.locale ?? Locale(identifier: "zh_CN")
         self.calendar = localCalendar
-        let endpoint = analyzer == nil && remoteAnalyzer.isConfigured ? remoteAnalyzer.endpoint : nil
-        self.remoteEndpoint = endpoint
-        let handler: DietPhotoAnalysisHandler?
-        if let analyzer {
-            handler = analyzer
-        } else if endpoint != nil {
-            handler = { request in await remoteAnalyzer.analyze(request: request) }
-        } else {
-            handler = nil
-        }
         _capture = StateObject(wrappedValue: DietCaptureCoordinator(
-            store: store, analyzer: handler, calendar: localCalendar,
-            requiresRemoteConsent: endpoint != nil
+            store: store, calendar: localCalendar
         ))
         let today = localCalendar.startOfDay(for: .now)
         _month = State(initialValue: today)
@@ -158,7 +140,7 @@ struct DietView: View {
                         onConfirm: confirmReview,
                         onCancel: suspendCapture,
                         onDiscard: { isDiscardingCapture = true },
-                        onRetry: remoteEndpoint == nil ? nil : { capture.requestAnalysis() }
+                        onRetry: { capture.requestAnalysis() }
                     )
                 }
             }
@@ -175,23 +157,6 @@ struct DietView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background { capture.pauseForDeparture() }
-        }
-        .onChange(of: capture.phase) { _, phase in
-            guard phase == .awaitingConsent else { return }
-            if let endpoint = remoteEndpoint, consentEndpoint == endpoint.absoluteString {
-                capture.allowRemoteAnalysis()
-            } else {
-                showsAIConsent = true
-            }
-        }
-        .alert("开启餐食 AI 识图？", isPresented: $showsAIConsent) {
-            Button("开启自动识图") {
-                consentEndpoint = remoteEndpoint?.absoluteString ?? ""
-                capture.allowRemoteAnalysis()
-            }
-            Button("本次只保存照片", role: .cancel) { capture.declineRemoteAnalysis() }
-        } message: {
-            Text("照片将发送到 \(remoteEndpoint?.host ?? "餐食分析服务")，再交给 OpenAI 估算热量。开启后，后续选择的餐食照片会自动分析；可在饮食页底部关闭。结果为估算值，请按实际食用份量核对。")
         }
         .onDisappear {
             photoLoadTask?.cancel()
@@ -229,15 +194,6 @@ struct DietView: View {
             }
             Button("继续填写", role: .cancel) { }
         }
-        .confirmationDialog("餐食 AI 识图", isPresented: $showsAISettings, titleVisibility: .visible) {
-            Button("关闭自动识图") {
-                consentEndpoint = ""
-                capture.pauseForDeparture()
-            }
-            Button("取消", role: .cancel) { }
-        } message: {
-            Text("关闭后，下次发送照片前会再次询问。已保存的照片和记录会保留。")
-        }
         .preferredColorScheme(.light)
     }
 
@@ -264,11 +220,6 @@ struct DietView: View {
             if monthSummaries.contains(where: \DietDaySummary.hasPendingRecognition) {
                 Label("有待确认记录", systemImage: "sparkles")
                     .roundedFont(10, weight: .bold)
-                    .foregroundStyle(DietPalette.lilac)
-            }
-            if remoteEndpoint != nil {
-                Button("AI 识图设置") { showsAISettings = true }
-                    .roundedFont(10, weight: .medium)
                     .foregroundStyle(DietPalette.lilac)
             }
         }

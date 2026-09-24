@@ -7,7 +7,7 @@ import Combine
 /// dismissed draft or overwriting a different meal.
 @MainActor
 final class DietCaptureCoordinator: ObservableObject {
-    enum Phase { case idle, loadingPhotos, awaitingConsent, analyzing, review }
+    enum Phase { case idle, loadingPhotos, analyzing, review }
 
     @Published private(set) var phase = Phase.idle
     @Published private(set) var draft: DietCaptureDraft?
@@ -16,17 +16,24 @@ final class DietCaptureCoordinator: ObservableObject {
     private let store: DietStore
     private let analyzer: DietPhotoAnalysisHandler?
     private let calendar: Calendar
-    private let requiresRemoteConsent: Bool
     private var requestID = UUID()
     private var analysisTask: Task<Void, Never>?
     private var loadingDate: Date = .now
 
-    init(store: DietStore, analyzer: DietPhotoAnalysisHandler? = nil, calendar: Calendar = .current, requiresRemoteConsent: Bool = false) {
+    /// Production always uses on-device Vision. Injection is test-only.
+    init(store: DietStore, calendar: Calendar = .current) {
+        self.store = store
+        self.analyzer = nil
+        self.calendar = calendar
+    }
+
+    #if DEBUG
+    init(store: DietStore, analyzer: DietPhotoAnalysisHandler?, calendar: Calendar = .current) {
         self.store = store
         self.analyzer = analyzer
         self.calendar = calendar
-        self.requiresRemoteConsent = requiresRemoteConsent
     }
+    #endif
 
     var isPresented: Bool { phase != .idle }
     var isBusy: Bool { phase == .loadingPhotos || phase == .analyzing }
@@ -66,18 +73,18 @@ final class DietCaptureCoordinator: ObservableObject {
             date: loadingDate,
             analysis: DietPhotoAnalysisDraft(
                 mealType: suggestedMealType(at: now),
-                sourceLabel: analyzer == nil ? "AI 识图服务尚未开通，照片可先保存。" : "准备识别照片中的餐食热量"
+                sourceLabel: "照片可先保存，设备端会读取照片中已有的 kcal 文字"
             ),
             images: photos.enumerated().map { index, data in
                 MealImageMetadata(data: data, filename: "饮食-\(index + 1).jpg", capturedAt: now)
             },
-            source: analyzer == nil ? .photo : .ai,
+            source: .photo,
             createdAt: now,
             updatedAt: now
         )
         phase = .review
         guard persist() else { return }
-        if analyzer != nil { requestAnalysis() }
+        requestAnalysis()
     }
 
     func resume(_ saved: DietCaptureDraft) {
@@ -104,28 +111,9 @@ final class DietCaptureCoordinator: ObservableObject {
     }
 
     func requestAnalysis() {
-        guard draft != nil, analyzer != nil, persist() else { return }
+        guard draft != nil, persist() else { return }
         invalidateAnalysis()
-        if requiresRemoteConsent {
-            phase = .awaitingConsent
-        } else {
-            startAnalysis(token: requestID)
-        }
-    }
-
-    func allowRemoteAnalysis() {
-        guard phase == .awaitingConsent else { return }
         startAnalysis(token: requestID)
-    }
-
-    func declineRemoteAnalysis() {
-        guard phase == .awaitingConsent else { return }
-        phase = .review
-        if var current = draft {
-            current.analysis.sourceLabel = "本次未发送照片，热量可稍后补充。"
-            draft = current
-            _ = persist()
-        }
     }
 
     /// Closing the review saves rather than discards it. On failure, retain
@@ -190,7 +178,11 @@ final class DietCaptureCoordinator: ObservableObject {
             let result: DietPhotoAnalysisDraft?
             if let analyzer {
                 result = await analyzer(input)
-            } else { result = nil }
+            } else {
+                result = await Task.detached(priority: .userInitiated) {
+                    await DietPhotoAnalysisService.analyze(request: input)
+                }.value
+            }
             guard !Task.isCancelled, let self,
                   self.isCurrent(token), self.phase == .analyzing,
                   var current = self.draft else { return }

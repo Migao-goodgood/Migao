@@ -44,7 +44,6 @@
 		A10000000000000000000038 /* Shared/UI/JournalCalendarStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000038 /* Shared/UI/JournalCalendarStyle.swift */; };
 		A10000000000000000000039 /* DietCaptureCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000039 /* DietCaptureCoordinator.swift */; };
 		A10000000000000000000040 /* DietPhotoPreparation.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000040 /* DietPhotoPreparation.swift */; };
-		A10000000000000000000041 /* DietAIAnalysisService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000041 /* DietAIAnalysisService.swift */; };
 		C6882D30302F0C4C00139FA1 /* Resources/Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C6882D2F302F0C4C00139FA1 /* Resources/Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -92,7 +91,6 @@
 		B10000000000000000000038 /* Shared/UI/JournalCalendarStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalCalendarStyle.swift; sourceTree = "<group>"; };
 		B10000000000000000000039 /* DietCaptureCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DietCaptureCoordinator.swift; sourceTree = "<group>"; };
 		B10000000000000000000040 /* DietPhotoPreparation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DietPhotoPreparation.swift; sourceTree = "<group>"; };
-		B10000000000000000000041 /* DietAIAnalysisService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DietAIAnalysisService.swift; sourceTree = "<group>"; };
 	/* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -320,7 +318,6 @@
 			children = (
 				B10000000000000000000036 /* DietPhotoAnalysisService.swift */,
 				B10000000000000000000040 /* DietPhotoPreparation.swift */,
-				B10000000000000000000041 /* DietAIAnalysisService.swift */,
 			);
 			path = Infrastructure;
 			sourceTree = "<group>";
@@ -483,7 +480,6 @@
 				A10000000000000000000038 /* Shared/UI/JournalCalendarStyle.swift in Sources */,
 				A10000000000000000000039 /* DietCaptureCoordinator.swift in Sources */,
 				A10000000000000000000040 /* DietPhotoPreparation.swift in Sources */,
-				A10000000000000000000041 /* DietAIAnalysisService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -16,8 +16,8 @@ struct DietPhotoAnalysisDraft: Codable, Equatable {
     var foods: [RecognizedFoodItem] = []
     var confidence: Double?
     var sourceLabel: String = "设备端识别"
-    /// Original AI estimate and the user's serving adjustment. These remain
-    /// optional so existing drafts keep their original meaning on upgrade.
+    /// Legacy estimate metadata, decoded to preserve existing drafts. The
+    /// local-only OCR flow never creates a calorie estimate or serving factor.
     var estimatedCaloriesKcal: Int?
     var portionMultiplier: Double?
 
@@ -75,8 +75,8 @@ struct DietCaptureDraft: Identifiable, Codable, Equatable {
     }
 }
 
-/// Injectable analyzer boundary. A future GPT/backend adapter can implement
-/// this contract without changing the diet page or persistence layer.
+/// Test injection boundary for deterministic local-recognition fixtures.
+/// Production capture calls the on-device Vision service directly.
 typealias DietPhotoAnalysisHandler = (DietPhotoAnalysisRequest) async -> DietPhotoAnalysisDraft?
 
 /// Provider-neutral dietary energy sample passed into the diet store. HealthKit

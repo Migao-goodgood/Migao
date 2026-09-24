@@ -6,7 +6,7 @@
 
 1. 右上角新增默认记录今天；日期详情内新增补记所选日期。
 2. 每批最多选 6 张照片。全部读取成功后做方向校正、缩放与压缩，再暂存为草稿。
-3. 照片暂存后，若已配置 AI 后端，首次取得明确同意再发送；同一端点可记住自动识图设置。识别期间可以直接保存照片。
+3. 照片暂存后使用设备端 Vision OCR 读取照片中已有的 kcal/千卡文字；不会上传照片。识别期间可以直接保存照片。
 4. 弹窗明确显示日期、餐次；名称和热量选填。点击日期可展开滚轮。
 5. “稍后确认”及关闭按钮保存草稿，饮食页“待确认”入口可以继续。点击弹窗外部不会绕过输入校验。
 6. “保存”将同一个草稿原子地转为正式记录，回到所选日期详情。
@@ -21,7 +21,7 @@
 - 没有热量时保留 `nil`，显示“待补充”；明确录入 0 时显示 0。
 - 部分餐食有热量时只展示“已记录”合计，并显示待补充餐数；不将合计称为全天摄入。
 - 识别不是保存的前置条件。识别失败也能保存照片；关闭、换页或换一餐后，旧识别结果不能写回新会话。
-- 主交互是识图估算热量并核对保存；AI 值标“约”，支持半份/图中份量/1.5份。手动热量和名称折叠选填。手动改热量清除估算标记，改日期保持标记。
+- 主交互是读取照片中的热量文字并核对保存。普通饭菜照片无法在本地可靠估算热量，因此未读到数字时显示“待补充”。手动热量和名称折叠选填。
 - 编辑保留原 ID、图片、来源、创建时间及 Apple 健康样本 ID。
 
 ## 职责
@@ -32,7 +32,7 @@
 | `Features/Diet/Application/DietStore.swift` | 校验、草稿/正式记录的原子转换、版本兼容、持久化与日汇总 |
 | `Features/Diet/Application/DietCaptureCoordinator.swift` | 当前记录会话、识别生命周期、防止迟到结果、关闭/恢复/确认 |
 | `Features/Diet/Infrastructure/DietPhotoPreparation.swift` | 照片方向校正、1600px 缩放、JPEG 压缩与原图元数据剥离 |
-| `Features/Diet/Infrastructure/DietAIAnalysisService.swift` | 餐食分析后端客户端：认证、响应校验、禁止重定向、明确的失败状态 |
+| `Features/Diet/Infrastructure/DietPhotoAnalysisService.swift` | 设备端 Vision OCR；只有唯一明确的 kcal 值才建议填入，营养表参考值和歧义留空 |
 | `Features/Diet/UI/DietView.swift` | 相册入口、日期导航、弹窗呈现和用户反馈 |
 | `Features/Diet/UI/DietComponents.swift` | 草稿入口、日期滚轮、输入卡、记录列表与汇总展示 |
 
@@ -54,9 +54,7 @@
 zsh ZheBuDeShouSi-iOS/Tests/run-diet-store-tests.sh
 zsh ZheBuDeShouSi-iOS/Tests/run-diet-capture-tests.sh
 zsh ZheBuDeShouSi-iOS/Tests/run-diet-input-tests.sh
-zsh ZheBuDeShouSi-iOS/Tests/run-diet-ai-tests.sh
-# 服务端测试使用 fake fetch；不会发送图片到 OpenAI
-npm --prefix server/diet-ai test
+zsh ZheBuDeShouSi-iOS/Tests/run-diet-ocr-tests.sh
 ```
 
 使用隔离的 UserDefaults、可控的异步识别器和失败写入器；覆盖重启、重复确认、修改日期、未知与零热量、失败回滚、旧快照兼容、HealthKit 防回流和迟到结果。
@@ -65,4 +63,4 @@ npm --prefix server/diet-ai test
 
 当前仍使用本地 UserDefaults 快照，沿用 2000 条记录/草稿、16 MB 图片合计、24 MB 编码快照上限；照片预处理减少存储压力，达到上限时明确报错。后续长期照片库应在持久化适配器中实现文件存储及迁移，再增加备份/恢复，不改变页面记录流程。
 
-餐食自动估算客户端与 `server/diet-ai` 后端已编写，但尚未配置模型密钥、部署公网 HTTPS 服务、接入生产用户会话或做真实餐食识别校准。无配置时不发送照片、不用 OCR 冒充餐食估算，会提示“AI 识图尚未开通”。开启需要服务端 `OPENAI_API_KEY`、显式选择的 `OPENAI_VISION_MODEL`；私测 bearer 只能用于开发，不能随 App 发布。详情见 `server/diet-ai/README.md`。后续真实测试需要明确授权接收方与测试照片。
+本版本只使用设备端 Vision OCR，读取照片中已有的 kcal/千卡文字，不需要账号、后端或费用。普通餐食照片未读到热量时保留照片并提示手动补充；不会凭空推测热量。

@@ -7,6 +7,7 @@ test_output=$(mktemp -d /private/tmp/migao-diet-capture-tests.XXXXXX)
 trap 'rm -f "$test_output/DietCaptureFlowTests"; rmdir "$test_output"' EXIT
 
 xcrun swiftc \
+  -D DEBUG \
   -parse-as-library \
   -module-cache-path /private/tmp/migao-diet-capture-test-module-cache \
   "$ios_directory/ZheBuDeShouSi/Features/Diet/Domain/DietModels.swift" \

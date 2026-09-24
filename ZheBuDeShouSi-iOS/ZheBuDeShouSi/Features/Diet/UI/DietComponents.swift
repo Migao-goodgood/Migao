@@ -1313,7 +1313,6 @@ struct DietRecognitionReviewCard: View {
     @State private var caloriesText: String
     @State private var showsManualCalories = false
     @State private var showsName = false
-    @State private var portionError: String?
 
     init(
         draft: Binding<DietPhotoAnalysisDraft>,
@@ -1354,7 +1353,7 @@ struct DietRecognitionReviewCard: View {
                     Text("记录饮食")
                         .roundedFont(21, weight: .heavy)
                         .foregroundStyle(DietPalette.ink)
-                    Text("识别餐食热量，按实际份量确认")
+                    Text("本地文字识别，照片也可先保存")
                         .roundedFont(11, weight: .medium)
                         .foregroundStyle(DietPalette.muted)
                 }
@@ -1456,7 +1455,6 @@ struct DietRecognitionReviewCard: View {
         .onChange(of: isLoading) { _, loading in
             if loading {
                 showsManualCalories = false
-                portionError = nil
             }
         }
     }
@@ -1464,17 +1462,16 @@ struct DietRecognitionReviewCard: View {
     private var calorieReview: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 7) {
-                Label(draft.isCalorieEstimate ? "AI 热量估算" : "本餐热量", systemImage: "sparkles")
+                Label("本餐热量", systemImage: "text.viewfinder")
                     .roundedFont(11, weight: .bold)
                     .foregroundStyle(DietPalette.pinkDeep)
                 Spacer(minLength: 6)
                 if let onRetry, !imageData.isEmpty, !isLoading {
                     Button {
                         caloriesText = draft.caloriesKcal.map(String.init) ?? ""
-                        portionError = nil
                         onRetry()
                     } label: {
-                        Label("重新识图", systemImage: "arrow.clockwise")
+                        Label("重新读取文字", systemImage: "arrow.clockwise")
                             .roundedFont(10, weight: .semibold)
                     }
                     .buttonStyle(.plain)
@@ -1489,30 +1486,6 @@ struct DietRecognitionReviewCard: View {
                 .roundedFont(11, weight: .medium)
                 .foregroundStyle(DietPalette.muted)
                 .fixedSize(horizontal: false, vertical: true)
-
-            if draft.isCalorieEstimate, !isLoading {
-                VStack(alignment: .leading, spacing: 7) {
-                    Text("实际食用份量")
-                        .roundedFont(10, weight: .semibold)
-                        .foregroundStyle(DietPalette.muted)
-                    Picker("实际食用份量", selection: portionBinding) {
-                        Text("半份").tag(0.5)
-                        Text("图中份量").tag(1.0)
-                        Text("1.5 份").tag(1.5)
-                    }
-                    .labelsHidden()
-                    .pickerStyle(.segmented)
-                    Text("照片估算有误差，份量和烹调用油会影响热量。")
-                        .roundedFont(10, weight: .medium)
-                        .foregroundStyle(DietPalette.muted)
-                }
-            }
-
-            if let portionError {
-                Text(portionError)
-                    .roundedFont(11, weight: .medium)
-                    .foregroundStyle(DietPalette.pinkDeep)
-            }
 
             if !isLoading {
                 DisclosureGroup(isExpanded: $showsManualCalories) {
@@ -1534,15 +1507,10 @@ struct DietRecognitionReviewCard: View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
             if isLoading {
                 ProgressView().controlSize(.small).tint(DietPalette.lilac)
-                Text(imageData.isEmpty ? "读取照片中" : "识图中")
+                Text(imageData.isEmpty ? "读取照片中" : "读取文字中")
                     .roundedFont(25, weight: .heavy)
                     .foregroundStyle(DietPalette.ink)
             } else if let calories = draft.caloriesKcal {
-                if draft.isCalorieEstimate {
-                    Text("约")
-                        .roundedFont(16, weight: .semibold)
-                        .foregroundStyle(DietPalette.pinkDeep)
-                }
                 Text("\(calories)")
                     .roundedFont(38, weight: .heavy)
                     .monospacedDigit()
@@ -1551,12 +1519,12 @@ struct DietRecognitionReviewCard: View {
                     .roundedFont(13, weight: .bold)
                     .foregroundStyle(DietPalette.pinkDeep)
                 if imageData.count > 1 {
-                    Text("本餐合计")
+                    Text("请核对本餐用量")
                         .roundedFont(10, weight: .medium)
                         .foregroundStyle(DietPalette.muted)
                 }
             } else {
-                Text("待识别")
+                Text("待补充")
                     .roundedFont(28, weight: .heavy)
                     .foregroundStyle(DietPalette.ink)
             }
@@ -1567,11 +1535,13 @@ struct DietRecognitionReviewCard: View {
 
     private var sourceDescription: String {
         if isLoading {
-            return imageData.isEmpty ? "照片读取完成后会开始分析。" : "正在分析餐食与份量，也可以先保存照片。"
+            return imageData.isEmpty ? "照片读取完成后会开始本地文字识别。" : "正在读取照片中的热量文字，也可以先保存照片。"
         }
         let source = draft.sourceLabel.trimmingCharacters(in: .whitespacesAndNewlines)
         if !source.isEmpty { return source }
-        return draft.caloriesKcal == nil ? "暂未识别到热量，照片可以先保存。" : "请按实际食用情况确认热量。"
+        return draft.caloriesKcal == nil
+            ? "未读到热量文字，照片可以先保存，再手动补充。"
+            : "请核对 kcal/kJ 单位，以及每份或每 100g 的标注，再填写实际摄入热量。"
     }
 
     private var recordDetails: some View {
@@ -1628,26 +1598,6 @@ struct DietRecognitionReviewCard: View {
         }
     }
 
-    private var portionBinding: Binding<Double> {
-        Binding(
-            get: { draft.portionMultiplier ?? 1 },
-            set: { multiplier in
-                guard let base = draft.estimatedCaloriesKcal, [0.5, 1, 1.5].contains(multiplier) else { return }
-                let adjustedCalories = Int((Double(base) * multiplier).rounded())
-                guard (0...20_000).contains(adjustedCalories) else {
-                    portionError = "调整后超出可记录的热量范围，请手动填写。"
-                    return
-                }
-                var adjusted = draft
-                adjusted.caloriesKcal = adjustedCalories
-                adjusted.portionMultiplier = multiplier
-                caloriesText = String(adjustedCalories)
-                portionError = nil
-                draft = adjusted
-            }
-        )
-    }
-
     private var caloriesBinding: Binding<String> {
         Binding(
             get: { caloriesText },
@@ -1658,8 +1608,7 @@ struct DietRecognitionReviewCard: View {
                 adjusted.caloriesKcal = DietEntryInputRules.calories(text, wholeNumbersOnly: true).map(Int.init)
                 adjusted.estimatedCaloriesKcal = nil
                 adjusted.portionMultiplier = nil
-                adjusted.sourceLabel = adjusted.caloriesKcal == nil ? "热量待补充，可重新识图。" : "手动填写热量"
-                portionError = nil
+                adjusted.sourceLabel = adjusted.caloriesKcal == nil ? "热量待补充，可重新读取照片中的文字。" : "手动填写热量"
                 draft = adjusted
             }
         )

@@ -22,8 +22,8 @@ struct DietCaptureFlowTests {
             ("save failure blocks replacing the only copy of a draft", failedDraftCannotBeReplaced),
             ("confirmation failure retains persisted draft", confirmationFailure),
             ("departure invalidates analysis without losing photos", pauseDuringAnalysis),
-            ("remote analysis waits for consent and declining keeps photos", remoteConsentDeclineAndUnconfigured),
-            ("consented AI estimates persist and late results stay invalidated", remoteConsentAllowAndLateResults),
+            ("default local OCR needs no consent or API", defaultLocalOCR),
+            ("local OCR retry, suspend and late result guards", localOCRRetryAndLateResults),
             ("stale photo picker results and partial batches do not save", stalePhotoLoading),
             ("photo preparation rejects corrupt bytes", corruptPhotoPreparation),
             ("photo preparation normalizes orientation, size and metadata", boundedPhotoPreparation)
@@ -283,98 +283,83 @@ struct DietCaptureFlowTests {
         try require(store.drafts.isEmpty && store.meals.isEmpty, "partial batch silently saved fewer photos")
     }
 
-    static func remoteConsentDeclineAndUnconfigured() async throws {
+    static func defaultLocalOCR() async throws {
         let fixture = Fixture()
         defer { fixture.cleanUp() }
-        let gate = DeferredAnalyzer()
         let store = fixture.makeStore()
-        let coordinator = DietCaptureCoordinator(store: store, analyzer: { request in
-            await gate.analyze(request)
-        }, calendar: fixture.calendar, requiresRemoteConsent: true)
+        let coordinator = DietCaptureCoordinator(store: store, calendar: fixture.calendar)
+        let blank = try blankJPEG()
         let token = coordinator.beginLoading(for: fixture.date)
-        coordinator.receivePhotos([fixture.photo], token: token)
-        await drainTasks()
-        try require(coordinator.phase == .awaitingConsent, "remote handler must wait for consent")
-        try require(gate.requests.isEmpty, "photo data reached analyzer before consent")
-        let saved = try unwrap(store.drafts.first, "photos must be durable before asking for consent")
-        try require(fixture.makeStore().draft(id: saved.id)?.images == saved.images, "consent prompt appeared before recoverable save")
-        coordinator.declineRemoteAnalysis()
-        coordinator.allowRemoteAnalysis() // A stale consent action after declining is ignored.
-        await drainTasks()
-        try require(coordinator.phase == .review && gate.requests.isEmpty, "declining/stale allow still called analyzer")
-        try require(coordinator.analysis.sourceLabel.contains("未发送"), "decline must clearly state photos were not sent")
-        let meal = try unwrap(coordinator.confirm(), "declining remote analysis blocked photo-only saving")
-        try require(meal.imageData == [fixture.photo] && meal.calculatedCaloriesKcal == nil, "decline lost photos or invented calories")
-        try require(!meal.isCalorieEstimate && store.drafts.isEmpty, "declined meal was labeled an estimate or left a duplicate draft")
-
-        let unconfigured = DietCaptureCoordinator(store: store, calendar: fixture.calendar, requiresRemoteConsent: true)
-        let unconfiguredToken = unconfigured.beginLoading(for: fixture.date)
-        unconfigured.receivePhotos([Data([4, 5, 6])], token: unconfiguredToken)
-        await drainTasks()
-        try require(unconfigured.phase == .review && unconfigured.analysis.sourceLabel.contains("尚未开通"), "default nil analyzer must honestly show unavailable status")
-        unconfigured.requestAnalysis()
-        unconfigured.allowRemoteAnalysis()
-        await drainTasks()
-        try require(unconfigured.phase == .review && !unconfigured.isBusy, "nil analyzer must not launch recognition or consent")
-        try require(unconfigured.analysis.caloriesKcal == nil && !unconfigured.analysis.isCalorieEstimate, "unconfigured flow invented an estimate")
-        try require(unconfigured.confirm()?.imageData == [Data([4, 5, 6])], "unconfigured flow must still save photos")
-        try require(gate.requests.isEmpty, "no handler call is allowed in declined/unconfigured flows")
+        coordinator.receivePhotos([blank], token: token)
+        try require(coordinator.phase == .analyzing, "default constructor must automatically start local OCR")
+        let saved = try unwrap(store.drafts.first, "photos must be durable before local OCR")
+        try require(fixture.makeStore().draft(id: saved.id)?.images == saved.images, "recognition started before recoverable save")
+        // First-use Vision initialization can exceed the short fake-analyzer
+        // timeout; this bounded wait does not add network or authorization.
+        for _ in 0..<1_000 {
+            if coordinator.phase == .review { break }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        try require(coordinator.phase == .review && !coordinator.isBusy, "blank JPEG did not finish local OCR")
+        try require(coordinator.analysis.caloriesKcal == nil && coordinator.analysis.title.isEmpty && coordinator.analysis.foods.isEmpty, "blank photo received invented meal values")
+        try require(coordinator.analysis.sourceLabel.contains("未读到明确热量"), "local no-text result must explain unknown kcal")
+        let meal = try unwrap(coordinator.confirm(), "local no-text result blocked photo-only saving")
+        try require(meal.imageData == [blank] && meal.calculatedCaloriesKcal == nil, "local OCR lost photos or invented calories")
+        try require(meal.source == .photo && store.drafts.isEmpty, "local OCR must remain a photo record without duplicate draft")
     }
 
-    static func remoteConsentAllowAndLateResults() async throws {
+    static func localOCRRetryAndLateResults() async throws {
         let fixture = Fixture()
         defer { fixture.cleanUp() }
         let gate = DeferredAnalyzer()
         let store = fixture.makeStore()
-        let coordinator = DietCaptureCoordinator(store: store, analyzer: { request in
-            await gate.analyze(request)
-        }, calendar: fixture.calendar, requiresRemoteConsent: true)
+        let coordinator = fixture.makeCoordinator(store: store, gate: gate)
         let token = coordinator.beginLoading(for: fixture.date)
         coordinator.receivePhotos([fixture.photo], token: token)
-        await drainTasks()
-        try require(gate.requests.isEmpty && coordinator.phase == .awaitingConsent, "initial call escaped consent gate")
-        coordinator.allowRemoteAnalysis()
-        coordinator.allowRemoteAnalysis() // Repeated taps cannot start duplicate requests.
         try await gate.waitForRequests(1)
-        await drainTasks()
-        try require(gate.requests.count == 1 && coordinator.phase == .analyzing, "explicit allow must start exactly one request")
-        try require(gate.requests[0].imageData == [fixture.photo], "consented analyzer received the wrong capture")
-        let estimate = DietPhotoAnalysisDraft(caloriesKcal: 300, confidence: 0.8,
-            sourceLabel: "AI 估算", estimatedCaloriesKcal: 600, portionMultiplier: 0.5)
-        gate.complete(0, with: estimate)
-        try await waitUntil("consented AI response did not finish") { coordinator.phase == .review }
-        try require(coordinator.analysis.isCalorieEstimate && coordinator.analysis.estimatedCaloriesKcal == 600
-            && coordinator.analysis.portionMultiplier == 0.5, "capture discarded valid estimate provenance")
-        let initial = try unwrap(coordinator.draft, "AI result lost its draft")
-        try require(fixture.makeStore().draft(id: initial.id)?.analysis.isCalorieEstimate == true, "AI provenance was not durably saved")
+        try require(coordinator.phase == .analyzing && gate.requests[0].imageData == [fixture.photo], "local analyzer received the wrong capture")
+        let visible = DietPhotoAnalysisService.draft(fromRecognizedLines: ["热量 300 kcal", "能量 300 千卡"], date: fixture.date)
+        gate.complete(0, with: visible)
+        try await waitUntil("local visible kcal response did not finish") { coordinator.phase == .review }
+        try require(coordinator.analysis.caloriesKcal == 300 && coordinator.analysis.title.isEmpty && coordinator.analysis.foods.isEmpty, "visible label was not read conservatively")
+        let initial = try unwrap(coordinator.draft, "local result lost its draft")
+        try require(fixture.makeStore().draft(id: initial.id)?.analysis.caloriesKcal == 300, "local OCR was not durably saved")
 
         coordinator.requestAnalysis()
-        await drainTasks()
-        try require(coordinator.phase == .awaitingConsent && gate.requests.count == 1, "retry must ask before uploading again")
-        coordinator.allowRemoteAnalysis()
         try await gate.waitForRequests(2)
+        try require(coordinator.phase == .analyzing, "local OCR retry did not start")
         coordinator.pauseForDeparture()
-        try require(coordinator.phase == .review, "leaving during consented analysis should restore review")
-        try require(coordinator.suspend(), "consented analysis could not suspend")
+        try require(coordinator.phase == .review, "leaving during local OCR should restore review")
+        try require(coordinator.suspend(), "local OCR could not suspend")
         let suspended = try unwrap(store.draft(id: initial.id), "suspending removed durable draft")
-        gate.complete(1, with: .init(caloriesKcal: 900, sourceLabel: "late AI", estimatedCaloriesKcal: 900, portionMultiplier: 1))
+        gate.complete(1, with: DietPhotoAnalysisService.draft(fromRecognizedLines: ["900 kcal"], date: fixture.date))
         await drainTasks()
-        try require(coordinator.draft == nil && !coordinator.isPresented, "late consented result reopened suspended capture")
-        try require(store.draft(id: initial.id) == suspended, "late consented result overwrote suspended estimate")
+        try require(coordinator.draft == nil && !coordinator.isPresented, "late local result reopened suspended capture")
+        try require(store.draft(id: initial.id) == suspended, "late local result overwrote suspended draft")
 
         coordinator.resume(suspended)
         coordinator.requestAnalysis()
-        await drainTasks()
-        try require(coordinator.phase == .awaitingConsent && gate.requests.count == 2, "resuming must not reuse earlier upload consent")
-        coordinator.allowRemoteAnalysis()
         try await gate.waitForRequests(3)
-        let confirmed = try unwrap(coordinator.confirm(), "pending retry prevented confirmation of the saved estimate")
-        try require(confirmed.isCalorieEstimate && confirmed.caloriesKcal == 300, "confirmation lost the last reviewed estimate")
-        gate.complete(2, with: .init(caloriesKcal: 1_200, sourceLabel: "late AI", estimatedCaloriesKcal: 1_200, portionMultiplier: 1))
+        let confirmed = try unwrap(coordinator.confirm(), "pending local retry prevented confirmation")
+        try require(confirmed.caloriesKcal == 300, "confirmation lost the last reviewed local result")
+        gate.complete(2, with: DietPhotoAnalysisService.draft(fromRecognizedLines: ["1200 kcal"], date: fixture.date))
         await drainTasks()
         let restored = fixture.makeStore()
-        try require(restored.record(id: confirmed.id) == confirmed && restored.drafts.isEmpty, "late consented result rewrote confirmed meal or revived its draft")
-        try require(!coordinator.isPresented && coordinator.draft == nil, "late consented result reopened confirmed capture")
+        try require(restored.record(id: confirmed.id) == confirmed && restored.drafts.isEmpty, "late local result rewrote confirmed meal or revived its draft")
+        try require(!coordinator.isPresented && coordinator.draft == nil, "late local result reopened confirmed capture")
+    }
+
+    static func blankJPEG() throws -> Data {
+        let context = try unwrap(CGContext(data: nil, width: 256, height: 256, bitsPerComponent: 8,
+            bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue), "blank fixture context unavailable")
+        context.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 256, height: 256))
+        let image = try unwrap(context.makeImage(), "blank fixture image unavailable")
+        let data = NSMutableData()
+        let destination = try unwrap(CGImageDestinationCreateWithData(data, UTType.jpeg.identifier as CFString, 1, nil), "blank fixture destination unavailable")
+        CGImageDestinationAddImage(destination, image, nil)
+        try require(CGImageDestinationFinalize(destination), "blank fixture JPEG failed")
+        return data as Data
     }
 
     static func corruptPhotoPreparation() async throws {
