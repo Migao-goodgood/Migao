@@ -5,17 +5,17 @@ import SwiftUI
 /// and interaction emphasis remain consistent across both journals.
 enum JournalCalendarStyle {
     static let weekdaySymbols = ["一", "二", "三", "四", "五", "六", "日"]
-    static let cardRadius: CGFloat = 24
-    static let cardHorizontalPadding: CGFloat = 16
-    static let cardVerticalPadding: CGFloat = 18
-    static let cellRadius: CGFloat = 14
-    static let cellHeight: CGFloat = 62
-    static let columnSpacing: CGFloat = 7
-    static let rowSpacing: CGFloat = 8
-    static let weekdaySpacing: CGFloat = 14
+    static let cardRadius: CGFloat = 26
+    static let cardHorizontalPadding: CGFloat = 14
+    static let cardVerticalPadding: CGFloat = 16
+    static let cellRadius: CGFloat = 10
+    static let cellHeight: CGFloat = 58
+    static let columnSpacing: CGFloat = 5
+    static let rowSpacing: CGFloat = 6
+    static let weekdaySpacing: CGFloat = 10
     static let selectionAccent = Color.jellyPink
-    static let emptyCellFill = Color.platinumPale.opacity(0.28)
-    static let emptyCellBorder = Color.platinumLight.opacity(0.72)
+    static let emptyCellFill = Color.clear
+    static let emptyCellBorder = Color.clear
 
     static func calendar() -> Calendar {
         var value = Calendar(identifier: .gregorian)
@@ -48,11 +48,11 @@ extension View {
     /// Shared outer surface used by the two month calendars.
     func journalCalendarSurface() -> some View {
         self
-            .background(Color.white, in: RoundedRectangle(cornerRadius: JournalCalendarStyle.cardRadius, style: .continuous))
+            .background(Color.white.opacity(0.86), in: RoundedRectangle(cornerRadius: JournalCalendarStyle.cardRadius, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: JournalCalendarStyle.cardRadius, style: .continuous)
                     .stroke(Color.platinumLight, lineWidth: 1)
             }
-            .shadow(color: Color.platinum.opacity(0.18), radius: 14, y: 7)
+            .shadow(color: Color.platinum.opacity(0.12), radius: 18, y: 8)
     }
 }

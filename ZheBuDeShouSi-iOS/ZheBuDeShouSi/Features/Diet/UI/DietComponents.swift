@@ -80,7 +80,7 @@ struct DietPageHeader: View {
                 }
                 if missingCaloriesMealCount > 0 {
                     Text("\(missingCaloriesMealCount) 餐热量待补充")
-                        .roundedFont(10, weight: .medium)
+                        .journalMicro()
                         .foregroundStyle(DietPalette.muted)
                 }
             }
@@ -115,11 +115,10 @@ private struct DietHeaderMetric: View {
     var body: some View {
         HStack(alignment: .lastTextBaseline, spacing: 6) {
             Text(value)
-                .roundedFont(20, weight: .heavy)
-                .monospacedDigit()
+                .journalMetricSmall()
                 .foregroundStyle(tint)
             Text(label)
-                .roundedFont(10, weight: .medium)
+                .journalCaption()
                 .foregroundStyle(DietPalette.muted)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -133,37 +132,35 @@ struct DietMonthToolbar: View {
     let onToday: () -> Void
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             Button(action: onPreviousMonth) {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 13, weight: .bold))
-                    .frame(width: 34, height: 34)
+                    .frame(width: 30, height: 30)
                     .foregroundStyle(DietPalette.ink)
-                    .background(Color.white, in: Circle())
-                    .overlay(Circle().stroke(DietPalette.rule, lineWidth: 1))
+                    .background(Color.clear, in: Circle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("上一个月")
 
             Text(DietDateText.month.string(from: month))
-                .roundedFont(17, weight: .heavy)
+                .font(JournalTypography.font(17, weight: .semibold))
                 .foregroundStyle(DietPalette.ink)
                 .frame(maxWidth: .infinity)
 
             Button(action: onNextMonth) {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 13, weight: .bold))
-                    .frame(width: 34, height: 34)
+                    .frame(width: 30, height: 30)
                     .foregroundStyle(DietPalette.ink)
-                    .background(Color.white, in: Circle())
-                    .overlay(Circle().stroke(DietPalette.rule, lineWidth: 1))
+                    .background(Color.clear, in: Circle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("下一个月")
 
             Button(action: onToday) {
                 Text("今天")
-                    .roundedFont(11, weight: .bold)
+                    .journalCaption()
                     .foregroundStyle(DietPalette.pinkDeep)
                     .padding(.horizontal, 10)
                     .frame(height: 34)
@@ -214,8 +211,8 @@ struct DietMonthCalendar: View {
             HStack(spacing: 0) {
                 ForEach(JournalCalendarStyle.weekdaySymbols, id: \.self) { symbol in
                     Text(symbol)
-                        .roundedFont(10, weight: .bold)
-                        .foregroundStyle(symbol == "日" ? JournalCalendarStyle.selectionAccent : Color.platinumDeep)
+                        .journalMicro()
+                        .foregroundStyle(symbol == "日" ? JournalCalendarStyle.selectionAccent.opacity(0.82) : Color.platinumDeep.opacity(0.72))
                         .frame(maxWidth: .infinity)
                 }
             }
@@ -265,13 +262,12 @@ private struct DietCalendarCell: View {
         Button(action: onTap) {
             VStack(spacing: 4) {
                 Text("\(calendar.component(.day, from: date))")
-                    .roundedFont(14, weight: isToday || isSelected ? .heavy : .semibold)
+                    .font(JournalTypography.font(14, weight: isToday || isSelected ? .semibold : .medium))
                     .monospacedDigit()
                     .foregroundStyle(dayColor)
                 if let summary, summary.mealCount > 0 {
                     Text(summary.knownCaloriesMealCount > 0 ? DietNumberText.kcal(summary.totalCaloriesKcal, estimated: summary.hasEstimatedCalories) : "待补充")
-                        .roundedFont(10, weight: .bold)
-                        .monospacedDigit()
+                        .journalMicro()
                         .foregroundStyle(DietPalette.pinkDeep.opacity(0.85))
                         .lineLimit(1)
                         .minimumScaleFactor(0.65)
@@ -286,8 +282,10 @@ private struct DietCalendarCell: View {
             .frame(height: JournalCalendarStyle.cellHeight)
             .background(cellBackground, in: RoundedRectangle(cornerRadius: JournalCalendarStyle.cellRadius, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: JournalCalendarStyle.cellRadius, style: .continuous)
-                    .stroke(isSelected ? JournalCalendarStyle.selectionAccent : JournalCalendarStyle.emptyCellBorder, lineWidth: isSelected ? 1.6 : 1)
+                if isSelected {
+                    RoundedRectangle(cornerRadius: JournalCalendarStyle.cellRadius, style: .continuous)
+                        .stroke(JournalCalendarStyle.selectionAccent.opacity(0.82), lineWidth: 1.4)
+                }
             }
         }
         .buttonStyle(.plain)
@@ -301,11 +299,11 @@ private struct DietCalendarCell: View {
 
     private var cellBackground: Color {
         guard let summary, summary.mealCount > 0 else {
-            return isToday ? DietPalette.pinkWash.opacity(0.55) : JournalCalendarStyle.emptyCellFill
+            return isToday ? DietPalette.pinkWash.opacity(0.52) : JournalCalendarStyle.emptyCellFill
         }
-        guard summary.knownCaloriesMealCount > 0 else { return DietPalette.lilacWash.opacity(0.6) }
-        let ratio = min(max(Double(summary.totalCaloriesKcal) / 2_200, 0.14), 1)
-        return DietPalette.pinkWash.opacity(0.22 + ratio * 0.48)
+        guard summary.knownCaloriesMealCount > 0 else { return DietPalette.lilacWash.opacity(0.42) }
+        let ratio = min(max(Double(summary.totalCaloriesKcal) / 2_200, 0.12), 1)
+        return DietPalette.pinkWash.opacity(0.18 + ratio * 0.34)
     }
 
     private var accessibilityText: String {

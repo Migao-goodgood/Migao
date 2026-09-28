@@ -1,5 +1,31 @@
 import SwiftUI
 
+enum JournalTypography {
+    static let pageTitle: CGFloat = 28
+    static let sectionTitle: CGFloat = 18
+    static let metric: CGFloat = 24
+    static let metricSmall: CGFloat = 16
+    static let body: CGFloat = 14
+    static let secondary: CGFloat = 12
+    static let caption: CGFloat = 11
+    static let micro: CGFloat = 10
+
+    static func font(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        .system(size: size, weight: weight, design: .rounded)
+    }
+}
+
+extension View {
+    func journalPageTitle() -> some View { font(JournalTypography.font(JournalTypography.pageTitle, weight: .semibold)) }
+    func journalSectionTitle() -> some View { font(JournalTypography.font(JournalTypography.sectionTitle, weight: .semibold)) }
+    func journalMetric() -> some View { font(JournalTypography.font(JournalTypography.metric, weight: .semibold)).monospacedDigit() }
+    func journalMetricSmall() -> some View { font(JournalTypography.font(JournalTypography.metricSmall, weight: .semibold)).monospacedDigit() }
+    func journalBody() -> some View { font(JournalTypography.font(JournalTypography.body)) }
+    func journalSecondary() -> some View { font(JournalTypography.font(JournalTypography.secondary)) }
+    func journalCaption() -> some View { font(JournalTypography.font(JournalTypography.caption, weight: .medium)) }
+    func journalMicro() -> some View { font(JournalTypography.font(JournalTypography.micro, weight: .medium)) }
+}
+
 /// Shared page-level rhythm for the first three journal surfaces.
 enum JournalPageLayout {
     static let horizontalPadding: CGFloat = 16
@@ -37,7 +63,7 @@ struct JournalPageHeader<Action: View, Details: View>: View {
         HStack(alignment: .top, spacing: JournalPageLayout.headerSpacing) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .roundedFont(JournalPageLayout.titleSize, weight: .heavy)
+                    .journalPageTitle()
                     .foregroundStyle(titleColor)
                     .lineLimit(1)
                     .minimumScaleFactor(0.84)

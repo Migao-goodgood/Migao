@@ -11,7 +11,7 @@ struct InBodyHistorySection: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .lastTextBaseline) {
                 Text("历史记录")
-                    .roundedFont(19, weight: .heavy)
+                    .journalSectionTitle()
                     .foregroundStyle(BodyEditorial.ink)
                 Spacer()
                 Text("共 \(snapshots.count) 次测量")

@@ -102,7 +102,7 @@ struct WeightModuleTitle: View {
 
     var body: some View {
         Text(title)
-            .roundedFont(19, weight: .heavy)
+            .journalSectionTitle()
             .foregroundStyle(Color.inkSoft)
             .lineLimit(1)
             .minimumScaleFactor(0.85)
@@ -208,7 +208,7 @@ struct WeightCalendarView: View {
             .opacity(canMoveForward ? 1 : 0.32)
             .disabled(!canMoveForward)
         }
-        .padding(.top, 18)
+        .padding(.top, 12)
     }
 
     private func calendarArrow(
@@ -221,7 +221,7 @@ struct WeightCalendarView: View {
                 .font(.system(size: 13, weight: .bold))
                 .foregroundStyle(Color.inkSoft)
                 .frame(width: 30, height: 30)
-                .background(Color.platinumPale, in: Circle())
+                .background(Color.clear, in: Circle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
@@ -300,40 +300,35 @@ private struct WeightCalendarDayCell: View {
     }
 
     var body: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 3) {
             Text("\(calendar.component(.day, from: date))")
-                .roundedFont(14, weight: isToday ? .heavy : .semibold)
+                .roundedFont(13, weight: isToday ? .heavy : .medium)
                 .foregroundStyle(isToday ? JournalCalendarStyle.selectionAccent : Color.inkSoft)
 
             if let summary {
                 Text(unit.formattedValue(fromKilograms: summary.representative.weight))
-                    .roundedFont(17, weight: .heavy)
+                    .journalMetricSmall()
                     .foregroundStyle(style.textTone)
-                    .monospacedDigit()
                     .minimumScaleFactor(0.55)
                     .lineLimit(1)
             } else {
-                Text(" ")
-                    .roundedFont(17, weight: .heavy)
+                Circle()
+                    .fill(isToday ? JournalCalendarStyle.selectionAccent.opacity(0.42) : Color.clear)
+                    .frame(width: 3.5, height: 3.5)
                     .accessibilityHidden(true)
             }
         }
         .frame(maxWidth: .infinity)
         .frame(height: JournalCalendarStyle.cellHeight)
         .background(
-            summary == nil ? JournalCalendarStyle.emptyCellFill : tone.opacity(style.fillOpacity),
+            summary == nil ? JournalCalendarStyle.emptyCellFill : tone.opacity(min(0.34, style.fillOpacity * 0.78)),
             in: RoundedRectangle(cornerRadius: JournalCalendarStyle.cellRadius, style: .continuous)
         )
         .overlay {
-            RoundedRectangle(cornerRadius: JournalCalendarStyle.cellRadius, style: .continuous)
-                .stroke(
-                    isToday
-                        ? JournalCalendarStyle.selectionAccent
-                        : (summary == nil
-                            ? JournalCalendarStyle.emptyCellBorder
-                            : tone.opacity(style.borderOpacity)),
-                    lineWidth: isToday ? 1.5 : 1
-                )
+            if isToday {
+                RoundedRectangle(cornerRadius: JournalCalendarStyle.cellRadius, style: .continuous)
+                    .stroke(JournalCalendarStyle.selectionAccent.opacity(0.72), lineWidth: 1.4)
+            }
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityText)

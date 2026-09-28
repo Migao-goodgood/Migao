@@ -589,6 +589,6 @@ extension View {
     }
 
     func roundedFont(_ size: CGFloat, weight: Font.Weight = .regular) -> some View {
-        self.font(.system(size: size, weight: weight, design: .default))
+        self.font(.system(size: size, weight: weight, design: .rounded))
     }
 }

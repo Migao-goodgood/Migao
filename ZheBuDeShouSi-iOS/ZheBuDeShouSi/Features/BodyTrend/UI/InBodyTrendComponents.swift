@@ -30,7 +30,7 @@ struct InBodyLatestSummaryView: View {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("最新测量")
-                        .roundedFont(19, weight: .heavy)
+                        .journalSectionTitle()
                         .foregroundStyle(BodyEditorial.ink)
                     Text(InBodyFormatters.measurementDate.string(from: latest.date))
                         .roundedFont(11, weight: .medium)
@@ -109,7 +109,7 @@ struct InBodyTrendSection: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .lastTextBaseline) {
                 Text("身体趋势")
-                    .roundedFont(19, weight: .heavy)
+                    .journalSectionTitle()
                     .foregroundStyle(BodyEditorial.ink)
                 Spacer()
                 Text("共 \(snapshots.count) 次")
