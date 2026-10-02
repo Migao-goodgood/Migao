@@ -108,38 +108,49 @@ struct AddMediaActionLabel: View {
 
     var body: some View {
         ZStack {
-            Circle()
-                .fill(surfaceColor)
+            // A quiet rounded-square container reads like a native toolbar
+            // action instead of a decorative sticker. The hit area remains
+            // the shared 58pt frame used by all journal headers.
+            RoundedRectangle(cornerRadius: 17, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [surfaceColor.opacity(0.98), surfaceColor.opacity(0.72)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
                 .frame(width: 50, height: 50)
                 .overlay {
-                    Circle()
-                        .stroke(Color.white.opacity(0.9), lineWidth: 1.5)
+                    RoundedRectangle(cornerRadius: 17, style: .continuous)
+                        .stroke(Color.white.opacity(0.72), lineWidth: 1)
                 }
 
             Image(systemName: systemName)
-                .font(.system(size: 18, weight: .semibold))
+                .font(.system(size: 18, weight: .medium))
+                .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(foregroundColor)
-                .offset(x: showsBadge ? -2 : 0, y: showsBadge ? -1 : 0)
+                .offset(x: showsBadge ? -1 : 0, y: showsBadge ? -1 : 0)
 
             if showsBadge {
                 ZStack {
                     Circle()
-                        .fill(badgeColor)
+                        .fill(Color.white.opacity(0.96))
                     Image(systemName: "plus")
-                        .font(.system(size: 10, weight: .heavy))
-                        .foregroundStyle(.white)
+                        .font(.system(size: 9, weight: .semibold))
+                        .symbolRenderingMode(.monochrome)
+                        .foregroundStyle(badgeColor)
                 }
-                .frame(width: 22, height: 22)
+                .frame(width: 20, height: 20)
                 .overlay {
                     Circle()
-                        .stroke(borderColor, lineWidth: 2.5)
+                        .stroke(borderColor.opacity(0.9), lineWidth: 2)
                 }
-                .offset(x: 18, y: 18)
+                .offset(x: 17, y: 17)
             }
         }
         .frame(width: 58, height: 58)
         .contentShape(Rectangle())
-        .shadow(color: badgeColor.opacity(0.18), radius: 9, y: 4)
+        .shadow(color: foregroundColor.opacity(0.12), radius: 10, y: 5)
     }
 }
 

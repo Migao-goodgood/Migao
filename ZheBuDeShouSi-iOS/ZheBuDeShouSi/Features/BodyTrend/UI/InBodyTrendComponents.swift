@@ -139,7 +139,7 @@ struct InBodyTrendSection: View {
                         .foregroundStyle(BodyEditorial.muted)
                 }
                 .frame(maxWidth: .infinity, minHeight: 150)
-                .background(BodyEditorial.blueWash.opacity(0.46), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .background(BodyEditorial.blueWash.opacity(0.46), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
         }
     }
@@ -172,7 +172,7 @@ struct InBodyAssessmentView: View {
                         .roundedFont(11, weight: .bold)
                         .foregroundStyle(BodyEditorial.muted)
                     Text(result.headline)
-                        .roundedFont(18, weight: .heavy)
+                        .roundedFont(18, weight: .semibold)
                         .foregroundStyle(BodyEditorial.ink)
                 }
 
@@ -209,7 +209,11 @@ struct InBodyAssessmentView: View {
                 .padding(.top, 13)
         }
         .padding(16)
-        .background(BodyEditorial.blushWash.opacity(0.42), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(BodyEditorial.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(BodyEditorial.rule, lineWidth: 1)
+        }
         .overlay(alignment: .leading) {
             Rectangle().fill(BodyEditorial.blush).frame(width: 3)
         }
@@ -236,7 +240,7 @@ struct InBodyEmptyState: View {
                 .background(BodyEditorial.blueWash, in: Circle())
 
             Text("还没有身体数据")
-                .roundedFont(21, weight: .heavy)
+                .roundedFont(21, weight: .semibold)
                 .foregroundStyle(BodyEditorial.ink)
 
             Text("第一份 InBody 报告等待收录")
@@ -244,9 +248,9 @@ struct InBodyEmptyState: View {
                 .foregroundStyle(BodyEditorial.muted)
         }
         .frame(maxWidth: .infinity, minHeight: 330)
-        .background(BodyEditorial.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(BodyEditorial.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(BodyEditorial.rule, lineWidth: 1)
         }
     }
@@ -276,7 +280,7 @@ struct CoreMetricCard: View {
             }
 
             Text(formatted(currentValue))
-                .roundedFont(22, weight: .heavy)
+                .roundedFont(22, weight: .semibold)
                 .foregroundStyle(BodyEditorial.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.72)
@@ -289,11 +293,11 @@ struct CoreMetricCard: View {
         }
         .frame(maxWidth: .infinity, minHeight: 92, alignment: .leading)
         .padding(13)
-        .background(BodyEditorial.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(BodyEditorial.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(alignment: .bottom) {
             Rectangle().fill(metricTint).frame(height: 2)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private var metricTint: Color {
@@ -361,7 +365,7 @@ private struct InBodyLineChart: View {
             HStack(alignment: .firstTextBaseline) {
                 if let latest = points.last {
                     Text(valueText(latest.value))
-                        .roundedFont(21, weight: .heavy)
+                        .roundedFont(21, weight: .semibold)
                         .foregroundStyle(BodyEditorial.ink)
                 }
                 Spacer()
@@ -414,9 +418,9 @@ private struct InBodyLineChart: View {
             .foregroundStyle(BodyEditorial.muted)
         }
         .padding(15)
-        .background(BodyEditorial.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(BodyEditorial.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(BodyEditorial.rule, lineWidth: 1)
         }
         .accessibilityElement(children: .ignore)

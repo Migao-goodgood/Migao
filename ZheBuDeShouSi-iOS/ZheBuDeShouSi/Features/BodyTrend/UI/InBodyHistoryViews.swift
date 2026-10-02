@@ -41,9 +41,9 @@ struct InBodyHistorySection: View {
                 }
             }
             .padding(.horizontal, 13)
-            .background(BodyEditorial.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .background(BodyEditorial.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .stroke(BodyEditorial.rule, lineWidth: 1)
             }
         }
@@ -60,7 +60,7 @@ private struct InBodyHistoryRow: View {
         HStack(spacing: 12) {
             VStack(spacing: 2) {
                 Text(dayText)
-                    .roundedFont(20, weight: .heavy)
+                    .roundedFont(20, weight: .semibold)
                     .foregroundStyle(BodyEditorial.ink)
                 Text(monthText)
                     .roundedFont(9, weight: .bold)
@@ -71,7 +71,7 @@ private struct InBodyHistoryRow: View {
             VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 7) {
                     Text(snapshot.weightKg.map { weightUnit.formatted(fromKilograms: $0) } ?? "--")
-                        .roundedFont(14, weight: .heavy)
+                        .roundedFont(14, weight: .semibold)
                         .foregroundStyle(BodyEditorial.ink)
                     if isLatest {
                         Text("最新")
@@ -143,7 +143,7 @@ struct InBodyHistoryDetailSheet: View {
                     HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(InBodyFormatters.measurementDate.string(from: snapshot.date))
-                                .roundedFont(22, weight: .heavy)
+                                .roundedFont(22, weight: .semibold)
                                 .foregroundStyle(BodyEditorial.ink)
                             Text(snapshot.source.title)
                                 .roundedFont(10, weight: .medium)
@@ -153,7 +153,7 @@ struct InBodyHistoryDetailSheet: View {
                         if let score = snapshot.score {
                             VStack(spacing: 2) {
                                 Text(String(format: "%.0f", score))
-                                    .roundedFont(22, weight: .heavy)
+                                    .roundedFont(22, weight: .semibold)
                                 Text("评分")
                                     .roundedFont(8, weight: .bold)
                             }
@@ -194,9 +194,9 @@ struct InBodyHistoryDetailSheet: View {
                         detailRow("SMI", value: snapshot.smiKgPerM2.map { String(format: "%.1f kg/m²", $0) })
                     }
                     .padding(.horizontal, 14)
-                    .background(BodyEditorial.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .background(BodyEditorial.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .stroke(BodyEditorial.rule, lineWidth: 1)
                     }
 
@@ -206,7 +206,7 @@ struct InBodyHistoryDetailSheet: View {
                             .foregroundStyle(BodyEditorial.ink)
                             .padding(14)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(BodyEditorial.blushWash.opacity(0.45), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            .background(BodyEditorial.blushWash.opacity(0.45), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
                 }
                 .padding(18)

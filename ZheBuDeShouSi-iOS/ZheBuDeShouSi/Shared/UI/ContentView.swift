@@ -275,7 +275,7 @@ private struct HomeDietEntry: View {
                     } else if summary.knownCaloriesMealCount > 0 {
                         HStack(alignment: .lastTextBaseline, spacing: 4) {
                             Text(DietNumberText.kcal(summary.totalCaloriesKcal, estimated: summary.hasEstimatedCalories))
-                                .roundedFont(19, weight: .heavy)
+                                .roundedFont(19, weight: .semibold)
                                 .monospacedDigit()
                                 .foregroundStyle(DietPalette.pinkDeep)
                             Text("kcal 已记录 · \(summary.mealCount) 餐")
@@ -302,11 +302,12 @@ private struct HomeDietEntry: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 13)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(DietPalette.lilacWash.opacity(0.58), in: RoundedRectangle(cornerRadius: 21, style: .continuous))
+            .background(Color.white.opacity(0.92), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 21, style: .continuous)
-                    .stroke(DietPalette.rule, lineWidth: 1)
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(Color.platinumLight.opacity(0.9), lineWidth: 1)
             }
+            .shadow(color: Color.black.opacity(0.045), radius: 13, y: 6)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("今日饮食")
@@ -356,14 +357,11 @@ private struct HomePlanCard: View {
 
         }
         .padding(.horizontal, 20)
-        .padding(.top, 19)
-        .padding(.bottom, 18)
-        .background(
-            LinearGradient(colors: [Color.white, Color.platinumPale], startPoint: .topLeading, endPoint: .bottomTrailing),
-            in: RoundedRectangle(cornerRadius: 27, style: .continuous)
-        )
-        .overlay(RoundedRectangle(cornerRadius: 27, style: .continuous).stroke(Color.platinumLight, lineWidth: 1))
-        .shadow(color: Color.platinum.opacity(0.28), radius: 18, y: 9)
+        .padding(.top, 18)
+        .padding(.bottom, 17)
+        .background(Color.white.opacity(0.96), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(Color.platinumLight.opacity(0.92), lineWidth: 1))
+        .shadow(color: Color.black.opacity(0.05), radius: 12, y: 5)
     }
 
 }
@@ -388,7 +386,7 @@ private struct HomeWeightSetupAction: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(currentWeight == nil ? "记录第一笔体重" : "设置目标体重")
-                        .roundedFont(14, weight: .heavy)
+                        .roundedFont(14, weight: .semibold)
                         .foregroundStyle(Color.ink)
                     Text(detailText)
                         .roundedFont(10, weight: .medium)
@@ -642,9 +640,9 @@ private struct HomeTrendAndHistory: View {
             .padding(.vertical, 17)
             .padding(.horizontal, 17)
             .frame(maxWidth: 620)
-            .background(Color.white, in: RoundedRectangle(cornerRadius: 27, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 27, style: .continuous).stroke(Color.platinumLight, lineWidth: 1))
-            .shadow(color: Color.platinum.opacity(0.2), radius: 15, y: 7)
+            .background(Color.white.opacity(0.96), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(Color.platinumLight.opacity(0.88), lineWidth: 1))
+            .shadow(color: Color.black.opacity(0.045), radius: 12, y: 5)
 
             WeightCalendarView(state: state)
                 .frame(maxWidth: 620)
@@ -1497,7 +1495,13 @@ private struct ProfileView: View {
                         ProfileStat(value: goalStatValue, label: "目标 \(state.weightUnit.rawValue)")
                     }.padding(.top, 25).padding(.bottom, 4)
                 }
-                .padding(.top, 20).padding(.horizontal, 20).padding(.bottom, 20).kawaiiCard(radius: 24)
+                .padding(.top, 22).padding(.horizontal, 20).padding(.bottom, 21)
+                .background(Color.white.opacity(0.95), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .stroke(Color.platinumLight.opacity(0.9), lineWidth: 1)
+                }
+                .shadow(color: Color.black.opacity(0.05), radius: 16, y: 7)
                 VStack(spacing: 0) {
                     HealthKitConnectionCard(state: state, health: health, diet: diet, sync: healthSync)
                     Divider()
@@ -1509,7 +1513,15 @@ private struct ProfileView: View {
                         action: onShowAbout
                     )
                 }
-                    .padding(.horizontal, 18).kawaiiCard(radius: 24).padding(.top, 18)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 4)
+                    .background(Color.white.opacity(0.95), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 24, style: .continuous)
+                            .stroke(Color.platinumLight.opacity(0.9), lineWidth: 1)
+                    }
+                    .shadow(color: Color.black.opacity(0.045), radius: 16, y: 7)
+                    .padding(.top, 18)
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 120)
@@ -1545,10 +1557,10 @@ private struct ProfileAvatar: View {
         ZStack(alignment: .bottomTrailing) {
             avatarContent
                 .frame(width: 90, height: 90)
-                .background(Color.panelPink, in: RoundedRectangle(cornerRadius: 27, style: .continuous))
-                .clipShape(RoundedRectangle(cornerRadius: 27, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 27, style: .continuous).stroke(.white, lineWidth: 2))
-                .shadow(color: Color.platinum.opacity(0.7), radius: 0, x: 0, y: 6)
+                .background(Color.panelPink, in: RoundedRectangle(cornerRadius: 23, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 23, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 23, style: .continuous).stroke(.white, lineWidth: 2))
+                .shadow(color: Color.black.opacity(0.08), radius: 12, y: 6)
 
             Image(systemName: "camera.fill")
                 .font(.system(size: 11, weight: .bold))
@@ -1848,25 +1860,38 @@ private struct BottomNav: View {
             navItem(.mine)
         }
             .frame(maxWidth: 560)
-            .padding(.horizontal, 26).padding(.top, 11).padding(.bottom, 4)
+            .padding(.horizontal, 22).padding(.top, 8).padding(.bottom, 5)
             .frame(maxWidth: .infinity)
-            .background(.white.opacity(0.98)).overlay(alignment: .top) { Rectangle().fill(Color.platinumLight).frame(height: 1) }.shadow(color: Color.platinum.opacity(0.22), radius: 18, y: -7)
+            .background(Color.white.opacity(0.94))
+            .overlay(alignment: .top) {
+                Rectangle()
+                    .fill(Color.white.opacity(0.64))
+                    .frame(height: 1)
+            }
+            .shadow(color: Color.black.opacity(0.07), radius: 18, y: -7)
     }
 
     private func navItem(_ tab: AppTab) -> some View {
         Button { selected = tab } label: {
             VStack(spacing: 5) {
-                Image(systemName: icon(for: tab)).font(.system(size: 18, weight: .bold))
-                Text(tab.rawValue).roundedFont(10, weight: selected == tab ? .bold : .medium)
+                Image(systemName: icon(for: tab)).font(.system(size: 17, weight: .medium))
+                Text(tab.rawValue).roundedFont(10, weight: selected == tab ? .semibold : .regular)
             }
             .foregroundStyle(selected == tab ? Color.waterAccent : Color.platinumDeep)
             .frame(maxWidth: .infinity)
-            .frame(height: 58)
+            .frame(height: 54)
+            .background {
+                if selected == tab {
+                    Capsule(style: .continuous)
+                        .fill(Color.waterAccentPale.opacity(0.72))
+                        .padding(.horizontal, 8)
+                }
+            }
         }
         .buttonStyle(.plain)
     }
 
-    private func icon(for tab: AppTab) -> String { switch tab { case .home: return "house.fill"; case .diet: return "fork.knife"; case .trend: return "chart.xyaxis.line"; case .mine: return "person.fill" } }
+    private func icon(for tab: AppTab) -> String { switch tab { case .home: return "house.fill"; case .diet: return "fork.knife"; case .trend: return "chart.line.uptrend.xyaxis"; case .mine: return "person.fill" } }
 }
 
 private struct KawaiiMascot: View {
@@ -1874,22 +1899,23 @@ private struct KawaiiMascot: View {
     let size: CGFloat
 
     var body: some View {
-        let face = kind == .cloudKitty ? Color.white : Color.platinumLight
-        ZStack {
-            if kind == .berryBunny { ears(color: .white, bunny: true) }
-            if kind == .puddingBear { ears(color: Color.platinum, bunny: false) }
-            if kind == .cloudKitty { kittyEars() }
-            RoundedRectangle(cornerRadius: size * 0.28, style: .continuous).fill(face).frame(width: size * 0.78, height: size * 0.62).offset(y: size * 0.10)
-            HStack(spacing: size * 0.20) { Circle().fill(Color.inkSoft).frame(width: size * 0.07, height: size * 0.10); Circle().fill(Color.inkSoft).frame(width: size * 0.07, height: size * 0.10) }.offset(y: size * 0.08)
-            Capsule().fill(Color.platinumDeep).frame(width: size * 0.14, height: size * 0.045).offset(y: size * 0.26)
-        }.frame(width: size, height: size)
+        Image(systemName: symbolName)
+            .font(.system(size: size * 0.46, weight: .medium))
+            .foregroundStyle(Color.inkSoft)
+            .frame(width: size, height: size)
+            .background(Color.white.opacity(0.86), in: Circle())
+            .overlay(Circle().stroke(Color.platinumLight, lineWidth: 1))
     }
 
-    @ViewBuilder private func ears(color: Color, bunny: Bool) -> some View { HStack(spacing: size * 0.32) { RoundedRectangle(cornerRadius: size * 0.18).fill(color).frame(width: size * (bunny ? 0.22 : 0.24), height: size * (bunny ? 0.44 : 0.24)); RoundedRectangle(cornerRadius: size * 0.18).fill(color).frame(width: size * (bunny ? 0.22 : 0.24), height: size * (bunny ? 0.44 : 0.24)) }.offset(y: -size * 0.25) }
-    @ViewBuilder private func kittyEars() -> some View { HStack(spacing: size * 0.28) { Triangle().fill(.white).frame(width: size * 0.28, height: size * 0.28); Triangle().fill(.white).frame(width: size * 0.28, height: size * 0.28) }.offset(y: -size * 0.22) }
+    private var symbolName: String {
+        switch kind {
+        case .berryBunny: return "leaf"
+        case .puddingBear: return "drop"
+        case .mintMochi: return "figure.walk"
+        case .cloudKitty: return "person.crop.circle"
+        }
+    }
 }
-
-private struct Triangle: Shape { func path(in rect: CGRect) -> Path { var path = Path(); path.move(to: CGPoint(x: rect.midX, y: rect.minY)); path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY)); path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY)); path.closeSubpath(); return path } }
 
 private struct GoalWeightModal: View {
     @ObservedObject var state: AppState

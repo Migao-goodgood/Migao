@@ -2,18 +2,18 @@ import Foundation
 import SwiftUI
 
 enum BodyEditorial {
-    static let paper = Color(hex: "FFF8FC")
-    static let surface = Color.white.opacity(0.9)
-    static let ink = Color(hex: "342D3A")
-    static let muted = Color(hex: "857784")
-    static let blue = Color(hex: "76BCCE")
-    static let blueWash = Color(hex: "E7F5F8")
-    static let sage = Color(hex: "79B69D")
-    static let sageWash = Color(hex: "EAF5EF")
-    static let blush = Color(hex: "E18EAC")
-    static let blushWash = Color(hex: "FBE8F0")
-    static let gold = Color(hex: "C5A057")
-    static let rule = Color(hex: "EADDE5")
+    static let paper = Color(hex: "F7F7F9")
+    static let surface = Color.white.opacity(0.98)
+    static let ink = Color(hex: "1D1D1F")
+    static let muted = Color(hex: "8E8E93")
+    static let blue = Color.waterAccent
+    static let blueWash = Color.waterAccentPale
+    static let sage = Color.mintGreen
+    static let sageWash = Color.mintPale
+    static let blush = Color(hex: "D98282")
+    static let blushWash = Color(hex: "F8ECEC")
+    static let gold = Color(hex: "B19156")
+    static let rule = Color(hex: "E5E5EA")
 }
 
 enum InBodyFormatters {

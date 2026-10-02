@@ -183,9 +183,9 @@ struct BodyTrendView: View {
         }
         .padding(.horizontal, 13)
         .frame(minHeight: 40)
-        .background(BodyEditorial.surface, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .background(BodyEditorial.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(BodyEditorial.rule, lineWidth: 1)
         }
     }
@@ -205,7 +205,7 @@ struct BodyTrendView: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("定期测量")
-                        .roundedFont(16, weight: .heavy)
+                        .roundedFont(16, weight: .semibold)
                         .foregroundStyle(BodyEditorial.ink)
                     Text(measurementScheduleText)
                         .roundedFont(10, weight: .medium)
@@ -239,9 +239,9 @@ struct BodyTrendView: View {
             }
         }
         .padding(15)
-        .background(BodyEditorial.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(BodyEditorial.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(BodyEditorial.rule, lineWidth: 1)
         }
     }

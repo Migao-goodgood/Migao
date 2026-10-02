@@ -92,20 +92,25 @@ struct DietMealEditDraft: Equatable {
 }
 
 enum DietPalette {
-    static let paper = Color(hex: "FFF8FC")
-    static let surface = Color.white.opacity(0.96)
-    static let ink = Color(hex: "3B2E3D")
-    static let muted = Color(hex: "9B879B")
-    static let rule = Color(hex: "EEDDE8")
-    static let pink = Color(hex: "ED7FA8")
-    static let pinkDeep = Color(hex: "C85C88")
-    static let pinkWash = Color(hex: "FDE8F0")
-    static let lilac = Color(hex: "A68FCE")
-    static let lilacWash = Color(hex: "F1ECFA")
-    static let peach = Color(hex: "F2AF8D")
-    static let mint = Color(hex: "77BDAA")
-    static let mintWash = Color(hex: "EAF7F2")
-    static let gold = Color(hex: "C8A35E")
+    static let paper = Color(hex: "F7F7F9")
+    static let surface = Color.white.opacity(0.98)
+    static let ink = Color(hex: "1D1D1F")
+    static let muted = Color(hex: "8E8E93")
+    static let rule = Color(hex: "E5E5EA")
+    static let pink = Color(hex: "4E9B82")
+    static let pinkDeep = Color(hex: "3F8D77")
+    static let pinkWash = Color(hex: "E7F3EF")
+    static let lilac = Color(hex: "4F8FAF")
+    static let lilacWash = Color(hex: "E7F1F6")
+    static let peach = Color(hex: "D89A72")
+    static let mint = Color(hex: "4E9B82")
+    static let mintWash = Color(hex: "E7F3EF")
+    static let gold = Color(hex: "B19156")
+
+    // Semantic aliases keep the feature vocabulary clear while legacy names
+    // remain source-compatible with existing meal views.
+    static let primary = pinkDeep
+    static let secondary = lilac
 }
 
 extension View {
@@ -119,6 +124,6 @@ extension View {
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
                     .stroke(DietPalette.rule, lineWidth: 1)
             }
-            .shadow(color: DietPalette.pink.opacity(0.10), radius: 18, y: 8)
+            .shadow(color: Color.black.opacity(0.045), radius: 13, y: 5)
     }
 }

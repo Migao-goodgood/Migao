@@ -499,8 +499,10 @@ enum WeightJourneyPalette {
         }
     }
 
-    private static let startRGB = RGB(red: 245, green: 141, blue: 174)
-    private static let goalRGB = RGB(red: 112, green: 200, blue: 218)
+    // A muted rose-to-blue journey keeps the weight story visible without
+    // making the whole product feel like a toy or a candy UI.
+    private static let startRGB = RGB(red: 226, green: 153, blue: 173)
+    private static let goalRGB = RGB(red: 104, green: 170, blue: 196)
     private static let inkRGB = RGB(red: 51, green: 44, blue: 56)
 
     static let startColor = startRGB.color
@@ -547,26 +549,28 @@ enum WeightJourneyPalette {
 }
 
 extension Color {
-    static let pagePink = Color(hex: "FFF8FA")
-    static let panelPink = Color(hex: "FFE7EF")
-    static let strawberry = Color(hex: "3C3040")
-    static let softPink = Color(hex: "FFD1DE")
-    static let warmText = Color(hex: "3C3040")
-    static let mutedText = Color(hex: "9B8490")
-    static let mintGreen = Color(hex: "67AF97")
-    static let mintPale = Color(hex: "E4F8F2")
-    static let lavenderPale = Color(hex: "F0EBFF")
-    static let ink = Color(hex: "332C38")
-    static let inkSoft = Color(hex: "5D4F61")
-    static let platinum = Color(hex: "D8CBD2")
-    static let platinumDeep = Color(hex: "9A8290")
-    static let platinumLight = Color(hex: "F6E9EE")
-    static let platinumPale = Color(hex: "FFF8FA")
-    static let waterAccent = Color(hex: "63B7D0")
-    static let waterAccentPale = Color(hex: "E3F6FA")
+    // Shared neutral system: a quiet Apple-like canvas with restrained
+    // blue/mint accents. Feature palettes keep their semantic pink/goal tones.
+    static let pagePink = Color(hex: "F7F7F9")
+    static let panelPink = Color(hex: "EEF1F5")
+    static let strawberry = Color(hex: "1D1D1F")
+    static let softPink = Color(hex: "F2C7D5")
+    static let warmText = Color(hex: "1D1D1F")
+    static let mutedText = Color(hex: "8E8E93")
+    static let mintGreen = Color(hex: "4E9B82")
+    static let mintPale = Color(hex: "E7F3EF")
+    static let lavenderPale = Color(hex: "F0F1F7")
+    static let ink = Color(hex: "1D1D1F")
+    static let inkSoft = Color(hex: "48484A")
+    static let platinum = Color(hex: "C9CBD1")
+    static let platinumDeep = Color(hex: "8E8E93")
+    static let platinumLight = Color(hex: "E5E6EB")
+    static let platinumPale = Color(hex: "F7F7F9")
+    static let waterAccent = Color(hex: "4F8FAF")
+    static let waterAccentPale = Color(hex: "E7F1F6")
     static let jellyPink = WeightJourneyPalette.startColor
     static let jellyBlue = WeightJourneyPalette.goalColor
-    static let jellyMint = Color(hex: "7FD1B7")
+    static let jellyMint = Color(hex: "67AE98")
 
     init(hex: String) {
         let value = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
@@ -580,12 +584,11 @@ extension Color {
 }
 
 extension View {
-    func kawaiiCard(radius: CGFloat = 25) -> some View {
+    func kawaiiCard(radius: CGFloat = 16) -> some View {
         self
-            .background(Color.white)
-            .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).stroke(Color.white.opacity(0.95), lineWidth: 2))
-            .shadow(color: Color.platinum.opacity(0.52), radius: 0, x: 0, y: 7)
+            .background(Color.white, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).stroke(Color.platinumLight, lineWidth: 1))
+            .shadow(color: Color.black.opacity(0.055), radius: 12, y: 4)
     }
 
     func roundedFont(_ size: CGFloat, weight: Font.Weight = .regular) -> some View {

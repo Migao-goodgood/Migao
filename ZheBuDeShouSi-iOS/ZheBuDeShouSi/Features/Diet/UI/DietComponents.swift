@@ -922,12 +922,12 @@ struct DietDayDetailModal: View {
             }
         }
         .padding(18)
-        .background(DietPalette.paper, in: RoundedRectangle(cornerRadius: 27, style: .continuous))
+        .background(DietPalette.paper, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 27, style: .continuous)
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .stroke(Color.white.opacity(0.95), lineWidth: 1.5)
         }
-        .shadow(color: DietPalette.ink.opacity(0.16), radius: 28, y: 14)
+        .shadow(color: Color.black.opacity(0.10), radius: 20, y: 10)
     }
 }
 
@@ -1068,12 +1068,12 @@ struct DietMealEditModal: View {
             .padding(.top, 18)
         }
         .padding(18)
-        .background(DietPalette.paper, in: RoundedRectangle(cornerRadius: 27, style: .continuous))
+        .background(DietPalette.paper, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 27, style: .continuous)
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .stroke(Color.white.opacity(0.95), lineWidth: 1.5)
         }
-        .shadow(color: DietPalette.ink.opacity(0.16), radius: 28, y: 14)
+        .shadow(color: Color.black.opacity(0.10), radius: 20, y: 10)
         .onChange(of: draft.caloriesText) { _, _ in errorMessage = "" }
     }
 
